@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  /* Estilização personalizada para OPTIONS de SELECT */
+  /* Infelizmente, CSS puro tem controle limitado sobre o dropdown nativo do navegador (option) */
+  /* A melhor forma de estilizar options é forçando bg e color, mas o layout do container do dropdown é sistema */
+  /* Contudo, em alguns navegadores (Chrome/Edge modernos), estilizar 'select option' funciona para cores básicas. */
+
+  select option {
+    background-color: #222222;
+    /* Tons de cinza para imitar o bg-white/5 visível */
+    color: #9ca3af;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 11px;
+    /* Um pouco maior que o botão para legibilidade */
+    padding: 8px;
+  }
+
+  select option:hover,
+  select option:checked,
+  select option:focus {
+    background-color: #1a1a1a !important;
+    /* Ligeiramente mais claro no hover/checked */
+    color: #ffffff !important;
+  }
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}

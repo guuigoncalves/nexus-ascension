@@ -1,0 +1,482 @@
+import React, { useState, useEffect } from 'react';
+import { useCards } from '../contexts/CardContext';
+import { useNavigate } from 'react-router-dom';
+import type { Card, Universe, Rarity, CardType } from '../types';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+
+export const CardEditor: React.FC = () => {
+    const { cards, mode, setMode, updateCard, resetChanges } = useCards();
+    const navigate = useNavigate();
+    const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState<Partial<Card>>({});
+
+    // Filters & Sort State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterUniverse, setFilterUniverse] = useState<Universe | ''>('');
+    const [filterRarity, setFilterRarity] = useState<Rarity | ''>('');
+    const [filterType, setFilterType] = useState<CardType | ''>('');
+    const [sortOption, setSortOption] = useState<'name_asc' | 'name_desc' | 'id_asc' | 'id_desc' | 'atk_desc' | 'atk_asc' | 'level_desc' | 'level_asc'>('name_asc');
+
+    // Upload & Linking State
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadSearch, setUploadSearch] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
+
+    // UI State
+    const [filtersCollapsed, setFiltersCollapsed] = useState(() => {
+        const saved = localStorage.getItem('cardEditorFiltersCollapsed');
+        return saved === 'true';
+    });
+    const [sidebarWidth, setSidebarWidth] = useState(25); // Track sidebar width percentage
+
+    const selectedCard = cards.find(c => c.id === selectedCardId);
+
+    useEffect(() => {
+        if (selectedCard) {
+            setEditForm(selectedCard);
+        }
+    }, [selectedCard]);
+
+    useEffect(() => {
+        localStorage.setItem('cardEditorFiltersCollapsed', String(filtersCollapsed));
+    }, [filtersCollapsed]);
+
+    const handleSave = () => {
+        if (selectedCardId && mode === 'DEV') {
+            updateCard(selectedCardId, editForm);
+        }
+    };
+
+    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    const handleSmartUpload = async (targetCard: Card, file: File | null = uploadFile) => {
+        if (!file) return;
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('cardId', targetCard.id);
+
+        try {
+            const response = await fetch('http://localhost:3001/upload-card-image', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const newUrl = `${data.url}?t=${Date.now()}`;
+                updateCard(targetCard.id, { image: newUrl });
+                setUploadFile(null);
+                setUploadSearch('');
+            } else {
+                alert('Erro no upload: ' + data.error);
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao conectar com servidor de upload. Verifique se o terminal está rodando "node server.cjs".');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleCardDrop = (e: React.DragEvent, targetCard: Card) => {
+        e.preventDefault();
+        setDragOverCardId(null);
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith('image/')) {
+                handleSmartUpload(targetCard, file);
+            } else {
+                alert('Apenas arquivos de imagem são permitidos.');
+            }
+        }
+    };
+
+    const filteredCards = cards.filter(c => {
+        const normSearch = normalize(searchTerm);
+        const normName = normalize(c.name);
+        const matchesSearch = normName.includes(normSearch) || c.id.includes(searchTerm);
+        const matchesUniverse = filterUniverse ? c.universe === filterUniverse : true;
+        const matchesRarity = filterRarity ? c.rarity === filterRarity : true;
+        const matchesType = filterType ? c.type === filterType : true;
+
+        return matchesSearch && matchesUniverse && matchesRarity && matchesType;
+    }).sort((a, b) => {
+        switch (sortOption) {
+            case 'name_asc': return a.name.localeCompare(b.name);
+            case 'name_desc': return b.name.localeCompare(a.name);
+            case 'id_asc': return a.id.localeCompare(b.id);
+            case 'id_desc': return b.id.localeCompare(a.id);
+            case 'atk_desc': return (b.atk || 0) - (a.atk || 0);
+            case 'atk_asc': return (a.atk || 0) - (b.atk || 0);
+            case 'level_desc': return (a.level || 999) - (b.level || 999); // Lower level = stronger (Divine=1, Omega=2)
+            case 'level_asc': return (b.level || 999) - (a.level || 999);
+            default: return 0;
+        }
+    });
+
+    const universes: Universe[] = ['Marvel', 'DC', 'Dragon Ball', 'Naruto', 'One Piece', 'One Punch Man', 'God of War', 'Outros', '—'];
+    const rarities: Rarity[] = ['Comum', 'Rara', 'Épica', 'Lendária', 'Mítica', 'Divina'];
+    const types: CardType[] = ['Guerreiro', 'Efeito', 'Ômega', 'Divino', 'Fusão', 'Zeta'];
+
+    // Calculate grid columns based on sidebar width
+    const getGridColumns = () => {
+        if (sidebarWidth < 20) return 1;
+        if (sidebarWidth < 30) return 2;
+        if (sidebarWidth < 40) return 3;
+        return 4;
+    };
+
+    // Helper to get correct rarity based on level and type
+    const getCorrectRarity = (level: number | undefined, type: CardType): Rarity => {
+        if (type === 'Divino') return 'Divina';
+        if (type === 'Ômega') return 'Mítica';
+        if (!level) return 'Comum';
+        if (level <= 3) return 'Comum';
+        if (level <= 6) return 'Rara';
+        if (level <= 8) return 'Épica';
+        return 'Lendária';
+    };
+
+    return (
+        <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
+            <PanelGroup direction="horizontal">
+                {/* Sidebar Panel */}
+                <Panel defaultSize={25} minSize={15} maxSize={50} onResize={(size) => setSidebarWidth(size)}>
+                    <div className="h-full border-r border-gray-700 flex flex-col">
+                        {/* Header */}
+                        <div className="p-3 border-b border-gray-700 bg-gray-800 space-y-2">
+                            <div className="flex justify-between items-center">
+                                <h2 className="font-bold text-sm">Editor de Cartas</h2>
+                                <button onClick={() => navigate('/')} className="text-xs bg-gray-700 px-2 py-1 rounded hover:bg-gray-600">Sair</button>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setMode('DEV')}
+                                    className={`flex-1 py-1 text-xs rounded ${mode === 'DEV' ? 'bg-green-600' : 'bg-gray-700'}`}
+                                >
+                                    DEV
+                                </button>
+                                <button
+                                    onClick={() => setMode('PROD')}
+                                    className={`flex-1 py-1 text-xs rounded ${mode === 'PROD' ? 'bg-blue-600' : 'bg-gray-700'}`}
+                                >
+                                    PROD
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Collapsible Filters */}
+                        <div className="border-b border-gray-700 bg-gray-800">
+                            <button
+                                onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+                                className="w-full p-2 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-gray-700 transition-colors"
+                            >
+                                <span>FILTROS E ORDENAÇÃO</span>
+                                <span className="text-lg">{filtersCollapsed ? '▼' : '▲'}</span>
+                            </button>
+
+                            {!filtersCollapsed && (
+                                <div className="p-3 space-y-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por nome ou ID..."
+                                        className="w-full bg-gray-700 p-2 rounded text-xs border border-gray-600"
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                    />
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select
+                                            className="bg-gray-700 text-xs p-1 rounded border border-gray-600"
+                                            value={filterUniverse}
+                                            onChange={e => setFilterUniverse(e.target.value as Universe)}
+                                        >
+                                            <option value="">Todos Universos</option>
+                                            {universes.map(u => <option key={u} value={u}>{u}</option>)}
+                                        </select>
+
+                                        <select
+                                            className="bg-gray-700 text-xs p-1 rounded border border-gray-600"
+                                            value={filterRarity}
+                                            onChange={e => setFilterRarity(e.target.value as Rarity)}
+                                        >
+                                            <option value="">Todas Raridades</option>
+                                            {rarities.map(r => <option key={r} value={r}>{r}</option>)}
+                                        </select>
+
+                                        <select
+                                            className="bg-gray-700 text-xs p-1 rounded border border-gray-600"
+                                            value={filterType}
+                                            onChange={e => setFilterType(e.target.value as CardType)}
+                                        >
+                                            <option value="">Todos Tipos</option>
+                                            {types.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+
+                                        <select
+                                            className="bg-gray-700 text-xs p-1 rounded border border-gray-600 font-bold text-yellow-500"
+                                            value={sortOption}
+                                            onChange={e => setSortOption(e.target.value as any)}
+                                        >
+                                            <option value="name_asc">Nome (A-Z)</option>
+                                            <option value="name_desc">Nome (Z-A)</option>
+                                            <option value="id_asc">ID (Crescente)</option>
+                                            <option value="id_desc">ID (Decrescente)</option>
+                                            <option value="atk_desc">Maior ATK</option>
+                                            <option value="atk_asc">Menor ATK</option>
+                                            <option value="level_desc">Maior Nível</option>
+                                            <option value="level_asc">Menor Nível</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Smart Upload */}
+                        <div className="border-b border-gray-700 bg-gray-800 p-3">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs uppercase text-gray-400 font-bold">Smart Upload</span>
+                                <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs font-bold transition-colors">
+                                    <span>📤 Enviar</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={e => e.target.files && setUploadFile(e.target.files[0])}
+                                        className="hidden"
+                                    />
+                                </label>
+                            </div>
+
+                            {uploadFile && (
+                                <div className="bg-blue-900/40 p-2 rounded border border-blue-500/30">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <p className="text-xs text-blue-200 truncate pr-2">{uploadFile.name}</p>
+                                        <button onClick={() => setUploadFile(null)} className="text-red-400 font-bold text-xs hover:text-red-300">✕</button>
+                                    </div>
+                                    <input
+                                        className="w-full bg-gray-800 border-gray-600 rounded text-xs p-1"
+                                        placeholder="Vincular a qual carta?"
+                                        value={uploadSearch}
+                                        onChange={e => setUploadSearch(e.target.value)}
+                                        autoFocus
+                                    />
+                                    {uploadSearch.length > 1 && (
+                                        <div className="mt-1 max-h-32 overflow-y-auto bg-gray-800 rounded border border-gray-700">
+                                            {cards
+                                                .filter(c => {
+                                                    const ns = normalize(uploadSearch);
+                                                    const nn = normalize(c.name);
+                                                    return nn.includes(ns);
+                                                })
+                                                .slice(0, 5)
+                                                .map(c => (
+                                                    <button
+                                                        key={c.id}
+                                                        disabled={isUploading}
+                                                        onClick={() => handleSmartUpload(c)}
+                                                        className="w-full text-left px-2 py-1 text-xs hover:bg-blue-600 truncate border-b border-gray-700 last:border-0"
+                                                    >
+                                                        {c.name}
+                                                    </button>
+                                                ))
+                                            }
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+
+                        {/* Detail Panel */}
+                        <Panel defaultSize={75} minSize={40}>
+                            <div className="h-full flex flex-col bg-gray-900">
+                                {selectedCard ? (
+                                    <div className="flex-1 p-6 flex gap-6 overflow-y-auto">
+                                        {/* Preview */}
+                                        <div className="w-64 flex-shrink-0">
+                                            <h3 className="text-sm font-bold mb-3 text-gray-400">Preview</h3>
+                                            <div className="relative aspect-[2/3] rounded-lg overflow-hidden border-2 border-gray-600 bg-black shadow-2xl">
+                                                <img
+                                                    src={editForm.image || selectedCard.image}
+                                                    alt={editForm.name}
+                                                    className="w-full h-full object-contain"
+                                                    onError={(e) => (e.target as HTMLImageElement).src = 'https://placehold.co/300x400?text=No+Image'}
+                                                />
+                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-10">
+                                                    <div className="text-white font-bold text-lg">{editForm.name}</div>
+                                                    <div className="text-gray-300 text-sm">{editForm.atk} / {editForm.def}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Form */}
+                                        <div className="flex-1 space-y-4 max-w-2xl">
+                                            <div className="flex justify-between items-center sticky top-0 bg-gray-900/95 pb-3 border-b border-gray-800 backdrop-blur">
+                                                <div>
+                                                    <h3 className="text-xl font-bold flex items-center gap-2">
+                                                        {selectedCard.name}
+                                                        <span className="text-xs font-mono bg-gray-800 px-2 py-1 rounded text-gray-500 border border-gray-700">{selectedCard.id}</span>
+                                                    </h3>
+                                                </div>
+                                                {mode === 'DEV' && (
+                                                    <button
+                                                        onClick={handleSave}
+                                                        className="bg-green-600 hover:bg-green-500 px-6 py-2 rounded-lg font-bold shadow-lg transition-all transform hover:scale-105"
+                                                    >
+                                                        SALVAR
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {mode === 'PROD' && (
+                                                <div className="bg-yellow-500/10 text-yellow-200 p-3 rounded-lg border border-yellow-500/30 flex items-center gap-2 text-sm">
+                                                    <span className="text-xl">🔒</span>
+                                                    <div>
+                                                        <p className="font-bold">Modo de Leitura (PROD)</p>
+                                                        <p className="text-xs opacity-70">Mude para DEV para editar.</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                                                <div className="flex-1 space-y-3">
+                                                    <div>
+                                                        <label className="block text-xs uppercase font-bold text-blue-400 mb-1">Nome do Personagem</label>
+                                                        <input
+                                                            disabled={mode === 'PROD'}
+                                                            className="w-full bg-gray-900 border border-gray-600 p-2 rounded focus:border-blue-500 outline-none transition-colors text-sm"
+                                                            value={editForm.name || ''}
+                                                            onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="block text-xs uppercase font-bold text-blue-400 mb-1">Universo</label>
+                                                            <select
+                                                                disabled={mode === 'PROD'}
+                                                                className="w-full bg-gray-900 border border-gray-600 p-2 rounded focus:border-blue-500 outline-none text-sm"
+                                                                value={editForm.universe || ''}
+                                                                onChange={e => setEditForm({ ...editForm, universe: e.target.value as any })}
+                                                            >
+                                                                {universes.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs uppercase font-bold text-blue-400 mb-1">Raridade</label>
+                                                            <select
+                                                                disabled={mode === 'PROD'}
+                                                                className="w-full bg-gray-900 border border-gray-600 p-2 rounded focus:border-blue-500 outline-none text-sm"
+                                                                value={editForm.rarity || ''}
+                                                                onChange={e => setEditForm({ ...editForm, rarity: e.target.value as any })}
+                                                            >
+                                                                {rarities.map(r => <option key={r} value={r}>{r}</option>)}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                                                <label className="block text-xs uppercase font-bold text-purple-400 mb-1">URL da Imagem</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        disabled={mode === 'PROD'}
+                                                        className="w-full bg-gray-900 border border-gray-600 p-2 rounded font-mono text-xs text-green-400 focus:border-purple-500 outline-none"
+                                                        value={editForm.image || ''}
+                                                        onChange={e => setEditForm({ ...editForm, image: e.target.value })}
+                                                    />
+                                                    {mode === 'DEV' && (
+                                                        <button
+                                                            className="whitespace-nowrap px-3 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+                                                            onClick={() => window.open(editForm.image, '_blank')}
+                                                        >
+                                                            Abrir
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-4 gap-3">
+                                                <div className="p-2 bg-gray-800 rounded border border-gray-700">
+                                                    <label className="block text-xs uppercase font-bold text-red-400 mb-1">ATK</label>
+                                                    <input
+                                                        type="number"
+                                                        disabled={mode === 'PROD'}
+                                                        className="w-full bg-gray-900 border-b-2 border-red-500/50 p-1 text-base font-mono focus:border-red-500 outline-none"
+                                                        value={editForm.atk || 0}
+                                                        onChange={e => setEditForm({ ...editForm, atk: Number(e.target.value) })}
+                                                    />
+                                                </div>
+                                                <div className="p-2 bg-gray-800 rounded border border-gray-700">
+                                                    <label className="block text-xs uppercase font-bold text-blue-400 mb-1">DEF</label>
+                                                    <input
+                                                        type="number"
+                                                        disabled={mode === 'PROD'}
+                                                        className="w-full bg-gray-900 border-b-2 border-blue-500/50 p-1 text-base font-mono focus:border-blue-500 outline-none"
+                                                        value={editForm.def || 0}
+                                                        onChange={e => setEditForm({ ...editForm, def: Number(e.target.value) })}
+                                                    />
+                                                </div>
+                                                <div className="p-2 bg-gray-800 rounded border border-gray-700">
+                                                    <label className="block text-xs uppercase font-bold text-yellow-400 mb-1">Nível</label>
+                                                    <input
+                                                        type="number"
+                                                        disabled={mode === 'PROD'}
+                                                        className="w-full bg-gray-900 border-b-2 border-yellow-500/50 p-1 text-base font-mono focus:border-yellow-500 outline-none"
+                                                        value={editForm.level || 0}
+                                                        onChange={e => setEditForm({ ...editForm, level: Number(e.target.value) })}
+                                                    />
+                                                </div>
+                                                <div className="p-2 bg-gray-800 rounded border border-gray-700">
+                                                    <label className="block text-xs uppercase font-bold text-green-400 mb-1">Custo</label>
+                                                    <input
+                                                        type="number"
+                                                        disabled={mode === 'PROD'}
+                                                        className="w-full bg-gray-900 border-b-2 border-green-500/50 p-1 text-base font-mono focus:border-green-500 outline-none"
+                                                        value={editForm.cost || 0}
+                                                        onChange={e => setEditForm({ ...editForm, cost: Number(e.target.value) })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                                                <label className="block text-xs uppercase font-bold text-gray-400 mb-2">Descrição / Habilidade</label>
+                                                <textarea
+                                                    disabled={mode === 'PROD'}
+                                                    className="w-full bg-gray-900 border border-gray-600 p-2 rounded h-24 leading-relaxed focus:border-blue-500 outline-none resize-none text-sm"
+                                                    value={editForm.ability || ''}
+                                                    onChange={e => setEditForm({ ...editForm, ability: e.target.value })}
+                                                />
+                                            </div>
+
+                                            {mode === 'DEV' && (
+                                                <div className="pt-3 border-t border-gray-800 flex justify-end">
+                                                    <button
+                                                        onClick={resetChanges}
+                                                        className="text-red-400 text-xs hover:text-red-300 hover:underline flex items-center gap-1"
+                                                    >
+                                                        🗑️ Descartar todas alterações locais
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500 space-y-4">
+                                        <div className="text-6xl opacity-20">🎴</div>
+                                        <p className="text-lg font-medium">Selecione uma carta ao lado para editar</p>
+                                        <p className="text-sm opacity-50">Você pode arrastar imagens direto para os cards para fazer upload.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </Panel>
+                    </PanelGroup>
+                </div>
+                );
+};

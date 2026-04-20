@@ -1,0 +1,5 @@
+node_modules
+oficial.zip
+.vercel
+dist
+*.log

@@ -1,0 +1,350 @@
+[
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "🟢 NÍVEL 4 (Guerreiros Intermediários)"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "ID",
+    "__EMPTY": "Nome",
+    "__EMPTY_1": "Universo",
+    "__EMPTY_2": "AT",
+    "__EMPTY_3": "DF",
+    "__EMPTY_4": "Habilidade"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 187,
+    "__EMPTY": "Justiceiro (Punisher)",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 700,
+    "__EMPTY_3": 700,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 188,
+    "__EMPTY": "Elektra",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 700,
+    "__EMPTY_3": 700,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 189,
+    "__EMPTY": "Asa Noturna (Robin)",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 700,
+    "__EMPTY_3": 750,
+    "__EMPTY_4": "Torna-se imune a qualquer AT por 2T seguidos, nesse tempo aumenta o próprio AT em 50%."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 190,
+    "__EMPTY": "Caveira Vermelha",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 700,
+    "__EMPTY_3": 750,
+    "__EMPTY_4": "- Automatico - Ao eliminar um oponente, ganha 400 de DF e reduz 50% do AT dos demais oponentes por 2T."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 191,
+    "__EMPTY": "Duende Verde",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 700,
+    "__EMPTY_3": 700,
+    "__EMPTY_4": "Implanta caos as cartas adversárias na arena, destruindo até 2 cartas de DF menor que 1000."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 192,
+    "__EMPTY": "Rocket Raccoon",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 650,
+    "__EMPTY_3": 700,
+    "__EMPTY_4": "Explosivos: Reduz DF dos adversários em 50%. E elimina oponentes que ficaram com DF menor que 600."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 193,
+    "__EMPTY": "Groot",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 650,
+    "__EMPTY_3": 650,
+    "__EMPTY_4": "Quando destruído, volta como escudo vivo, bloqueando até 3 AT em aliados."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 194,
+    "__EMPTY": "Gavião Arqueiro",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 650,
+    "__EMPTY_3": 700,
+    "__EMPTY_4": "Atinge um oponente com 1500 de dano, ignorando qualquer escudo."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 195,
+    "__EMPTY": "Mysterio",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 600,
+    "__EMPTY_3": 650,
+    "__EMPTY_4": "Anula 2 AT de oponentes à sua escolha contra si ou seus aliados."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 196,
+    "__EMPTY": "Shikamaru Nara",
+    "__EMPTY_1": "Naruto",
+    "__EMPTY_2": 650,
+    "__EMPTY_3": 650,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 197,
+    "__EMPTY": "Kiba Inuzuka",
+    "__EMPTY_1": "Naruto",
+    "__EMPTY_2": 650,
+    "__EMPTY_3": 650,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 198,
+    "__EMPTY": "Konohamaru (Jovem)",
+    "__EMPTY_1": "Naruto",
+    "__EMPTY_2": 600,
+    "__EMPTY_3": 600,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 199,
+    "__EMPTY": "Tenten",
+    "__EMPTY_1": "Naruto",
+    "__EMPTY_2": 600,
+    "__EMPTY_3": 600,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 200,
+    "__EMPTY": "Senhor das Estrelas",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 650,
+    "__EMPTY_3": 600,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 201,
+    "__EMPTY": "Crocodile",
+    "__EMPTY_1": "One Piece",
+    "__EMPTY_2": 650,
+    "__EMPTY_3": 650,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "🟡 NÍVEL 3 (Combatentes Básicos)"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "ID",
+    "__EMPTY": "Nome",
+    "__EMPTY_1": "Universo",
+    "__EMPTY_2": "AT",
+    "__EMPTY_3": "DF",
+    "__EMPTY_4": "Habilidade"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 202,
+    "__EMPTY": "Batgirl",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 500,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 203,
+    "__EMPTY": "Robin (Damian Wayne)",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 500,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 204,
+    "__EMPTY": "Capuz Vermelho (Red Hood)",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 500,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 205,
+    "__EMPTY": "Arsenal",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 450,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 206,
+    "__EMPTY": "Canário Negro",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 500,
+    "__EMPTY_3": 450,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 207,
+    "__EMPTY": "Soldado Invernal",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 500,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 208,
+    "__EMPTY": "Fera",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 500,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 209,
+    "__EMPTY": "Blade",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 500,
+    "__EMPTY_3": 450,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 210,
+    "__EMPTY": "Videl",
+    "__EMPTY_1": "Dragon Ball",
+    "__EMPTY_2": 450,
+    "__EMPTY_3": 450,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 211,
+    "__EMPTY": "Alerquina",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 450,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Triplica seu AT, mas reduz sua DF pela metade, por 3T."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 212,
+    "__EMPTY": "Coringa",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 400,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Escolha uma carta da mão do oponente aleatoriamente para si."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 213,
+    "__EMPTY": "Nami",
+    "__EMPTY_1": "One Piece",
+    "__EMPTY_2": 450,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Aumenta sua própria DF em 400 e reduz 200 PTs dos adversários na arena por 2T."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 214,
+    "__EMPTY": "Usopp",
+    "__EMPTY_1": "One Piece",
+    "__EMPTY_2": 400,
+    "__EMPTY_3": 500,
+    "__EMPTY_4": "Lança um AT extra de 500 no seu T."
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "🟠 NÍVEL 2 (Suporte/Comédia)"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "ID",
+    "__EMPTY": "Nome",
+    "__EMPTY_1": "Universo",
+    "__EMPTY_2": "AT",
+    "__EMPTY_3": "DF",
+    "__EMPTY_4": "Habilidade"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 215,
+    "__EMPTY": "Nick Fury",
+    "__EMPTY_1": "Marvel",
+    "__EMPTY_2": 300,
+    "__EMPTY_3": 350,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 216,
+    "__EMPTY": "Charada",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 300,
+    "__EMPTY_3": 300,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 217,
+    "__EMPTY": "Mr. Satan",
+    "__EMPTY_1": "Dragon Ball",
+    "__EMPTY_2": 250,
+    "__EMPTY_3": 300,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 218,
+    "__EMPTY": "Buggy (o Payaso)",
+    "__EMPTY_1": "One Piece",
+    "__EMPTY_2": 300,
+    "__EMPTY_3": 250,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 219,
+    "__EMPTY": "Perona",
+    "__EMPTY_1": "One Piece",
+    "__EMPTY_2": 250,
+    "__EMPTY_3": 300,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 220,
+    "__EMPTY": "Mr. 2 Bon Clay",
+    "__EMPTY_1": "One Piece",
+    "__EMPTY_2": 300,
+    "__EMPTY_3": 300,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "⚪ NÍVEL 1 (Civis/Não Combatentes)"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": "ID",
+    "__EMPTY": "Nome",
+    "__EMPTY_1": "Universo",
+    "__EMPTY_2": "AT",
+    "__EMPTY_3": "DF",
+    "__EMPTY_4": "Habilidade"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 221,
+    "__EMPTY": "Bulma",
+    "__EMPTY_1": "Dragon Ball",
+    "__EMPTY_2": 100,
+    "__EMPTY_3": 150,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 222,
+    "__EMPTY": "Chi-Chi",
+    "__EMPTY_1": "Dragon Ball",
+    "__EMPTY_2": 150,
+    "__EMPTY_3": 100,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 223,
+    "__EMPTY": "Alfred Pennyworth",
+    "__EMPTY_1": "DC",
+    "__EMPTY_2": 100,
+    "__EMPTY_3": 100,
+    "__EMPTY_4": "Carta não criada ainda"
+  },
+  {
+    "JC CARD WARS - NÍVEIS 1-4 (BALANCEADO)": 224,
+    "__EMPTY": "Yajirobe",
+    "__EMPTY_1": "Dragon Ball",
+    "__EMPTY_2": 150,
+    "__EMPTY_3": 150,
+    "__EMPTY_4": "Carta não criada ainda"
+  }
+]

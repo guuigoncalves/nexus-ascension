@@ -1,0 +1,310 @@
+﻿JC CARD WARS (BALANCEADO);;;;;
+Ω Supremo;;;;;
+ID;Nome;Universo;AT;DF;Nível
+1;Ser Acima de Todos;Marvel;5000;5000;Carta não criada ainda
+2;Presença;DC;5000;5000;Carta não criada ainda
+3;Zeno;Dragon Ball;4800;4800;Carta não criada ainda
+4;Dr. Manhattan;DC;4500;4300;Manipula a realidade: troca 1 carta da arena ou cemitério por 1 carta da arena ou cemitério geral.
+5;Whis;Dragon Ball;4200;4200;Treina um aliado, sendo ambos removidos da arena por 2T, retornando com +50% em seus PT e sua HB podendo ser utilizadas. Após isso, Whis pode treinar 'outro' aliado.
+6;Beerus;Dragon Ball;4000;4000;Uma vez por T, pode destruir qualquer carta seja na arena ou da mão do oponente.
+7;Eternity;Marvel;3900;3900;Carta não criada ainda
+8;Morte;Marvel;3900;3900;Carta não criada ainda
+9;Anti-Monitor;DC;3800;3800;Carta não criada ainda
+10;Galactus;Marvel;3700;3600;Drena permanentemente 20% do AT de todas as cartas adversárias na arena.
+11;Darkseid;DC;3600;3500;Invoca 1 Lacaio com 500 PTs e controla 1 oponente permanentemente. Efeitos cessam se Darkseid for eliminado.
+12;Yhwach;Bleach;3500;3500;Carta não criada ainda
+13;Odin;Marvel;3400;3400;Pode revelar a mão do oponente e selar uma das cartas da mão permanentemente. 
+14;Zeus;Marvel/DC;3400;3400;Chuva de raios: reduz 50% do AT de todos os oponentes enquanto Zeus estiver na arena. Com sacrifício de uma carta aliada, também reduz 50% da DF de 1 oponente por T.
+15;Jean Grey (Fênix);Marvel;3300;3200;Controla 1 oponente por 1T. Ao fim do T, destroi o alvo.
+16;Shenlong;Dragon Ball;3200;3200;Carta não criada ainda
+⚛ Destruidor (Alto Poder + Efeito Colateral);;;;;
+ID;Nome;Universo;AT;DF;Nível
+17;Broly;Dragon Ball;3100;2800;A cada aliado derrotado aumenta sua ira, e ganha 1000 de AT. Ao perder o 4º aliado, é consumido pela fúria e se autodestrói.
+18;Sentry;Marvel;2900;2700;Dobra seu AT e tornar-se imune a tudo por 3T. Após isso, a instabilidade cresce e se autodestrói.
+19;Hulk;Marvel;2700;2400;Por 3T, entra em fúria, dobrando seu AT e podendo atacar até 2 oponentes por T. Ao fim, retorna a Banner com apenas 100 PT.
+20;Apocalypse (Doomsday);DC;2600;2500;Pode ressuscitar até 3x, sempre no T seguinte e cada vez com -25% de seus Pts. Na 3º leva junto dois companheiro.
+21;Ultron;Marvel;2500;2400;Carta não criada ainda
+22;Juggernaut;Marvel;2400;2600;Sempre que o adversario atacar, ganha +20% AT. Mesmo em modo de DF. (Deve ativar antes, é revelada no seu próximo T). Perde a DF na mesma proporção.
+23;Gorr;Marvel;2300;2200;Carta não criada ainda
+24;Sentinela;Marvel;2200;2300;Carta não criada ainda
+Lendário (Top Tier Mortais);;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+25;Superman (Prime);DC;2500;2500;Absorve energia solar, dobra seu AT e torna-se imune a AT e atravessa barreiras por 3T.
+26;Goku (Instinto Superior);Dragon Ball;2500;2450;Instinto Superior: Esquiva de AT, HB e EF. E usa um Kamehameha que elimina 1 oponente por T. Dura 3T.
+27;Vegeta (Ultra Ego);Dragon Ball;2500;2400;Ultra Ego: por 2T elimina quem tocar, ao ser atingido resiste e contra-ataca, com poder devastador.
+28;Adão Negro;DC;2450;2450;Causa uma explosão de energia, reduzindo 50% dos PTs dos oponentes.
+29;Shazam;DC;2400;2350;Poder do trovão: aumenta 600 em seu AT. Lança a energia acumulada, reduzindo 50% DF de todos os oponentes. dura 3T.
+30;Satoru Gojo;Jujutsu Kaisen;2400;2400;Carta não criada ainda
+31;Jiren;Dragon Ball;2400;2350;Libera seu poder, aumentando seu AT em 50%, anulando todos os EF do oponente e reduzindo 50% dos AT contra si. dura 3T.
+32;Yoriichi Tsugikuni;Demon Slayer;2350;2300;Carta não criada ainda
+33;Freeza (Black);Dragon Ball;2300;2250;Por 3T ativa sua Forma Black, dobrando seus PTs e concedendo-lhe um contra-ataque imediato.
+34;Saitama;One Punch Man;2300;2250;Desfere um Soco Avassalador que destrói HB, EF ou guerreiros do alvo escolhido (exceto Divinos). Pode repetir a cada 4T.
+35;Gohan (Beast);Dragon Ball;2300;2200;Desperta sua Forma Beast, aumentando 50% de seu AT por 3T e eliminando um oponente com Makankōsappo.
+36;Thor;Marvel;2250;2200;Invoca uma poderosa tempestade em seu T, que elimina até 3 oponentes e bloqueia HB dos demais por 2T.
+37;Thanos;Marvel;2250;2250;Ativa a Manopla do Infinito, escolhe uma Joia por 2T. Mente: controla 1 oponente, Alma: altera AT, DF ou HB de 1 carta.
+38;Supergirl;DC;2200;2200;Carta não criada ainda
+39;Superboy-Prime;DC;2150;2150;Carta não criada ainda
+Titã;;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+40;Lobo;DC;2100;2100;Carta não criada ainda
+41;Ghost Rider;Marvel;2050;2000;Carta não criada ainda
+42;Yamamoto;Bleach;2050;2050;Carta não criada ainda
+43;Ichigo (Forma Final);Bleach;2000;1950;Carta não criada ainda
+44;Flash;DC;2000;2000;Volta no tempo e Ressuscita 2 aliados, mas traz 1 inimigo aleatório de volta.
+45;Aang (Avatar State);Avatar;1950;1950;Carta não criada ainda
+46;Korra (Avatar State);Avatar;1950;1950;Carta não criada ainda
+47;Dr. Estranho;Marvel;1950;1950;Olho de Agamotto: Aumenta 1000 em sua própria DF e revive 1 aliado. Dura 3T.
+48;Aizen Sosuke;Bleach;1950;1900;Carta não criada ainda
+49;Capitã Marvel;Marvel;1900;1850;Explosão de Fótons: Elimina até 3 oponentes de nível 7 ou inferior. E rouba o AT de 1 deles, somando ao seu.
+50;Dr. Destino;Marvel;1900;1900;Rouba a HB de um oponente (ainda não usada). Se o alvo for mágico, reduz seus PTs pela metade.
+51;Magneto;Marvel;1850;1850;Cria um campo magnético que paralisa 2 adversários por 2T e destrói oponentes cibernéticos na arena.
+52;Senhor Destino;Marvel;1850;1800;Invoca o Elmo de Nabu por 3T. Cria um campo mágico que bloqueia HB inimigas e dobra sua DF e de seus aliados. 
+53;Feiticeira Escarlate;Marvel;1850;1800;Realidade alternativa: troca todas as cartas da arena (mesma quantidade), pelas de seus cemitérios (aleatoriamente).
+54;Zamasu;Dragon Ball;1850;1850;Troca de corpo com um oponente por 3T. Podendo usar a HB da vítima 1x, tendo sido usada antes ou não.
+55;Moro;Dragon Ball;1850;1900;"Drena o AT de 1 oponente para o seu permanentemente; e, ao ser atacado, absorve 1 AT, e soma à sua DF por 3T."
+56;Hit;Dragon Ball;1800;1850;Ao ser atacado, salta no tempo e elimina o oponente antes do golpe. Pode usar 2x.
+57;Toppo;Dragon Ball;1850;1800;Ativa a forma Hakaishin: fica imune a AT e HB por 3T e usa Hakai para apagar 1 oponente.
+58;Majin Boo;Dragon Ball;1800;1750;Absorve 1 oponente que permanecerá absorvido até a eliminação de Majin boo. Pode absorver outro oponente a cada 3T.
+Elite;;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+59;Goku Black;Dragon Ball;1750;1800;Super Saiyajin Rosé: aumenta 1000 em seu AT por 3T e dispara um AT devastador de 1500, ignorando escudos.
+60;Piccolo (Orange);Dragon Ball;1800;1750;Orange: aumenta seu AT em 50%, e reduz  AT recebidos em 50%. A cada AT lancado perde 500 de DF, até ser eliminado.
+61;Android 17;Dragon Ball;1750;1700;Absorve 2 AT contra si ou seus aliados (à sua escolha) e adiciona ao seu AT, mas perde 500 de DF por absorção.
+62;Android 18;Dragon Ball;1750;1650;Absorve 1 AT recebido, juntando ao seu próprio AT.
+63;Trunks do Futuro;Dragon Ball;1700;1750;Desfere um golpe preciso de 1500 com sua espada a um oponente no seu T seguinte, seu AT aumenta em 50%.
+64;Cell;Dragon Ball;1700;1650;Quando ativo em 2T proprios explode, destruindo a arena e todos nela. Após 2T Cell se regenera com AT +50% e DF -50%.
+65;Android 16;Dragon Ball;1700;1750;Carta não criada ainda
+66;Toshiro Hitsugaya;Bleach;1750;1700;Carta não criada ainda
+67;Kenpachi Zaraki;Bleach;1750;1650;Carta não criada ainda
+68;Byakuya Kuchiki;Bleach;1700;1750;Carta não criada ainda
+69;Toph Beifong;Avatar;1700;1750;Carta não criada ainda
+70;Azula;Avatar;1700;1650;Carta não criada ainda
+71;Eren Yeager (Titã Fundador);Attack on Titan;1700;1700;Carta não criada ainda
+72;Muzan Kibutsuji;Demon Slayer;1700;1700;Carta não criada ainda
+73;Edward Elric;Fullmetal Alchemist;1650;1650;Carta não criada ainda
+74;Alphonse Elric;Fullmetal Alchemist;1600;1700;Carta não criada ainda
+75;Roy Mustang;Fullmetal Alchemist;1650;1600;Carta não criada ainda
+76;Naruto;Naruto;1650;1600;Sábio dos Seis Caminhos: Fica imune a AT por 3T e aumenta seu AT em 50% durante esse período.
+77;Sasuke;Naruto;1600;1650;"Manifesta o Susanoo por 3T, elevando seu AT para 2500; Após isso, perde toda a DF. Se for atacado, devolve o AT com +900. "
+78;Madara;Naruto;1650;1650;Carta não criada ainda
+79;Kaguya;Naruto;1650;1650;Carta não criada ainda
+80;Minato Namikaze;Naruto;1600;1600;Carta não criada ainda
+81;Might Guy (7º Portão);Naruto;1650;1550;Carta não criada ainda
+82;Shanks;One Piece;1600;1600;Carta não criada ainda
+83;Dracule Mihawk;One Piece;1650;1550;Carta não criada ainda
+84;Kozuki Oden;One Piece;1600;1600;Carta não criada ainda
+85;Charlotte Katakuri;One Piece;1550;1600;Carta não criada ainda
+86;Luffy (Gear 5);One Piece;1600;1550;Por 2T, dobra seu AT e reduz a DF de todos na arena em 50%.
+87;Mulher Maravilha;DC;1600;1600;Por 2T, dobra a DF e, a cada T, o Laço da Verdade revela 1 carta virada para baixo.
+88;Aquaman;DC;1500;1550;Convoca um exército marítimo que elimina os inimigos que tiverem 900 ou menos de AT ou DF.
+89;Ciborgue;DC;1500;1550;Aumenta seus PT em 50% e desativa oponentes cibernéticos, impedindo-os de atacar ou usar HB. Dura 3T.
+90;Lanterna Verde (Hal);DC;1550;1550;Cria construtos de energia: para realizar AT adicional de 1200. Que pode ser lancado no T do oponente. dura 3T
+91;Sinestro;DC;1550;1500;Usa o anel do medo paralisando AT e HB de 1 oponente por 2T. E absorve 50% de sua DF permanentemente.
+92;Visão;Marvel;1550;1520;Fica intangível por 3T, nao sofrendo com AT, HB e EF. Pode atravessar escudos.
+93;Hela;Marvel;1550;1550;Cada oponente derrotado aumenta 50% seu AT. Com 1 sacrifício, revive 1 vilão geral
+94;Loki;Marvel;1500;1500;Destrói uma linha do tempo, apagando todas as cartas adversárias do universo escolhido, na arena. (apenas 1x)
+95;Ravena;DC;1550;1500;Invoca uma aura psíquica que absorve o AT de 2 oponentes, transferindo para sua DF. E anula os EF do oponente. Dura 2T.
+96;Professor X;Marvel;1450;1400;Controla totalmente 1 oponente da arena ou cemitério por 3T e reduz em 50% os AT recebidos nesse período.
+97;Kratos;God of War;1550;1550;Ao derrotar um oponente, incorpora sua HB. (apenas uma vez)
+98;Itachi Uchiha;Naruto;1550;1550;Por 3T Aprisiona o alvo em um genjutsu, impedindo-o de usar AT e HB. E forçando-o a atacar 1 aliado por T.
+99;Kokushibo;Demon Slayer;1500;1500;Carta não criada ainda
+100;Scar;Fullmetal Alchemist;1500;1500;Carta não criada ainda
+101;Rei Bradley;Fullmetal Alchemist;1500;1500;Carta não criada ainda
+102;Zuko;Avatar;1500;1500;Carta não criada ainda
+103;Katara;Avatar;1450;1550;Carta não criada ainda
+104;Levi Ackerman;Attack on Titan;1500;1450;Carta não criada ainda
+105;Mikasa Ackerman;Attack on Titan;1450;1500;Carta não criada ainda
+106;Rukia Kuchiki;Bleach;1450;1500;Carta não criada ainda
+107;Renji Abarai;Bleach;1450;1450;Carta não criada ainda
+108;Ulquiorra;Bleach;1500;1450;Carta não criada ainda
+109;Monstro do Pântano;DC;1450;1500;Carta não criada ainda
+110;Etrigan;DC;1450;1450;Carta não criada ainda
+Veterano;;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+111;Gaara;Naruto;1400;1450;Imobiliza 1 oponente na areia, reduzindo 50% de sua DF por T. Ao fim do 2T, o oponente é eliminado, a menos que a areia atacada com 1700 ou mais.
+112;Orochimaru;Naruto;1350;1400;Infecta 1 oponente com sua marca. após 3T, toma posse de seu corpo. Porem HB permanece a do Orochimaru (reutilizável).
+113;Kakashi;Naruto;1350;1400;Sharingan: Copia uma HB que assistiu na arena. Além disso, pode usar Raikiri para eliminar 1 oponente no seu T.
+114;Jiraiya;Naruto;1350;1350;Carta não criada ainda
+115;Tsunade;Naruto;1300;1400;Carta não criada ainda
+116;Hiruzen Sarutobi;Naruto;1350;1350;Carta não criada ainda
+117;Ace;One Piece;1350;1300;Carta não criada ainda
+118;Sabo;One Piece;1350;1300;Carta não criada ainda
+119;Jinbe;One Piece;1300;1350;Carta não criada ainda
+120;Sanji;One Piece;1300;1300;Carta não criada ainda
+121;Tanjiro Kamado;Demon Slayer;1300;1300;Carta não criada ainda
+122;Barba Branca;One Piece;1350;1350;Carta não criada ainda
+123;Doflamingo;One Piece;1300;1300;Carta não criada ainda
+124;King;One Piece;1300;1300;Carta não criada ainda
+125;Queen;One Piece;1250;1300;Carta não criada ainda
+126;Homem de Ferro;Marvel;1250;1250;Armadura Força Ômega: aumenta 1000 em seus PT por 3T. Todo dano causado gera um AT extra automático no 4T.
+127;Pantera Negra;Marvel;1250;1300;Conecta-se aos ancestrais, aumentando seu AT em 500. Cada oponente derrotado concede +500 de DF permanente. dura 2T
+128;Wolverine;Marvel;1300;1350;Instinto predatório: dobra seu AT por 2T. Caso resista a um AT durante esse período, reforça 50% sua DF.
+129;Venom;Marvel;1300;1200;Toma posse de um oponente unindo seus Pts por 2T. Ao retornar, absorve 50% de seu AT, porem cede sua DF ao oponente.
+130;Ronan;Marvel;1300;1250;Por 4T, usa o Cosmi-Rod, eliminando um oponente e tornando-se imune a AT.
+Gladiador;;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+131;Roronoa Zoro;One Piece;1200;1200;Empunhando suas três espadas, recebe +500 AT por 2T e pode atingir 3 oponentes uma única vez no seu T.
+132;Trunks;Dragon Ball;1150;1200;Ao se transformar, ganha 400 PT e reduz em 20% a DF do alvo. dura 2T.
+133;Goten;Dragon Ball;1150;1200;"Se transforma, podendo atacar 2 vezes por T; cada AT aumenta em 300 o proximo"
+134;Pain/Nagato;Naruto;1200;1200;Carta não criada ainda
+135;Obito;Naruto;1200;1150;Carta não criada ainda
+136;Boruto;Naruto;1150;1150;Marca um oponente com o Karma, absorvendo sua DF no 1º T. Seu AT no 2º T, o destruindo.
+137;Rock Lee (8 Portas);Naruto;1200;1100;Porta da Fera: Acelera seus movimentos, realizando 3 AT por T, Dura 3T. Mas perde 90% de DF definitivamente apos isso.
+138;Neji Hyuga;Naruto;1100;1100;Ao ser atacado, reduz 80% o AT e caso sobreviva devolve 40%. A cada 3T, revela 1 carta virada para baixo do oponente.
+139;Homem-Aranha;Marvel;1100;1050;Imobiliza todos os oponentes, impedindo de usarem AT e HB por 3T. Nesse período aumenta o próprio AT em 50%.
+140;Máquina de Combate;Marvel;1100;1100;Carta não criada ainda
+141;Colossus;Marvel;1100;1150;Carta não criada ainda
+142;Homem de Gelo;Marvel;1050;1100;Carta não criada ainda
+143;Carnificina;Marvel;1100;1000;Carta não criada ainda
+144;Homem Formiga (Gigante);Marvel;1000;1050;Reduz seu tamanho para esquivar de 1 AT ou HB. Após, retornar ao normal, dobra seu AT.
+145;Vespa (Gigante);Marvel;1050;1000;Encolhe-se para atacar e, golpeando até 3 oponentes em um T.
+146;Coisa;Marvel;1100;1100;Libera sua força bruta, triplicando o AT por 2T. Porém, imediatamente a exaustão o enfraquece, e reduz imediatamente sua DF em 50%.
+147;Pietro Maximoff;Marvel;1100;1000;Sua velocidade ultrapassa limites: ataca 2x por T: o primeiro usa seu AT normal, o segundo tem 1800 de AT. Dura 3T.
+148;Tocha Humana;Marvel;1000;950;Lança chamas intensas, eliminando oponentes com menos de 700 de DF e reduzindo 500 a DF dos demais na arena.
+149;Mutano (Formas grandes);DC;1000;1000;Pode se transformar em seu T. Escolha: Tigre: dobra o AT, Elefante: dobra a DF.
+150;Estelar;DC;1050;1050;Canaliza uma explosão de energia que elimina até 2 oponentes a sua escolha.
+151;Drax;Marvel;1000;1000;Dobra o AT e reduz a DF dos oponentes em 500, por 2T.
+152;Gamora;Marvel;1000;1000;A cada oponente derrotado, aumenta seu AT em 50% e realiza um segundo ataque.
+153;Vampira;Marvel;900;900;Absorve os PTs de 1 oponente por T e anula seu AT por 1T. Não pode atacar esse oponente no T da absorção.
+154;Ciclope;Marvel;1000;950;Lança um poderoso raio óptico com 1000 de AT. Que acerta até 3 oponentes.
+155;Bardock;Dragon Ball;1000;1000;Carta não criada ainda
+156;Nappa;Dragon Ball;1000;1000;Carta não criada ainda
+157;Oob;Dragon Ball;1000;950;Libera poder oculto por 2T: dobra seu AT e pode atacar 2x por T. Ao fim, perde 50% de sua DF permanentemente.
+158;Eric Killmonger;Marvel;950;1000;Aumenta seu AT em 50%. Se derrotar 1 oponente apos ativacao, sobe para 100%
+Paladino;;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+159;Deadpool;Marvel;900;900;Quando é derrotado permite ressuscitar uma carta aliada do cemitério (próprio) que recebe 50% de aumento de AT e DF.
+160;Capitão América;Marvel;850;900;Bloqueia um AT, e sua escolha: contra si ou aliados, e os rebate para qualquer adversário. pode ser usado até 2x.
+161;Shuri (Pantera);Marvel;800;900;Invoca armaduras que aumentam em 50% a DF de todos os aliados por 3T.
+162;Homem Elástico;Marvel;850;900;Usa seu corpo elástico para proteger a si e seus aliados 2x de AT e HB. cada uso aumenta instantemente sua DF em 500.
+163;Mulher Invisível;Marvel;900;950;Cria uma barreira psíquica que desvia até 3 AT (sua escolha), contra si ou aliados. Cada desvio aumenta sua DF em 300.
+164;Wong;Marvel;900;950;Cria uma barreira que absorve até 2 AT e redireciona imediatamente o dano a um oponente.
+165;Viúva Negra;Marvel;800;850;Desfere AT adicional de 500 e anula ativação de HB dos demais por 2T.
+166;Nebulosa;Marvel;850;850;Uma vez por T - pode usar a HB de uma carta do cemiterio. Pode ser usada 3T
+167;Mística;Marvel;850;850;Copia os PTs de 1 adversario na arena. O deixando inconsciente sem atacar por 2T
+168;Pepper Potts (Armadura Resgate);Marvel;800;850;Carta não criada ainda
+169;Agatha Harkness;Marvel;850;850;Usa magias ancestrais para selar todos  os EF e HB dos oponentes por 4T, anulando ativos e inativos.
+170;Lex Luthor (Armadura);DC;900;850;dura 2T, escolha: ativar o traje avançado para aumentar seus PTs em 1000 ou usar drones para zerar a DF de 2 oponentes.
+171;Aquaman (padrão);DC;850;850;Carta não criada ainda
+172;Kuririn;Dragon Ball;900;900;Lança um Kienzan em um oponente à sua escolha. Caso o oponente não seja salvo é eliminado. Pode lançar outro após 4T.
+173;Tenshinhan;Dragon Ball;850;850;Ativa seu Terceiro Olho, revelando todas as cartas viradas para baixo e a mão do oponente, dura 2T.
+174;Mestre Kami;Dragon Ball;850;900;Sela um oponente em um recipiente com 850 de DF, até o recipiente ser atacado. Todo dano ao recipiente atinge a vitima.
+175;Sakura;Naruto;850;850;Cria uma onda de choque que impede todos os oponentes de AT por 2T. E aumenta a DF dos aliados em 400. 
+176;Yamcha;Dragon Ball;800;800;Carta não criada ainda
+177;Hinata Hyuga;Naruto;800;850;Carta não criada ainda
+178;Nico Robin;One Piece;850;850;Carta não criada ainda
+179;Franky;One Piece;850;800;Carta não criada ainda
+180;Brook;One Piece;800;800;Carta não criada ainda
+181;Tony Chopper;One Piece;750;800;Lança rajada de fogo com 600 de AT a um oponente, ignorando qualquer escudos. Pode ser usado 2T.
+182;Sasori;Naruto;800;800;Carta não criada ainda
+183;Deidara;Naruto;850;750;Carta não criada ainda
+184;Hidan;Naruto;800;800;Carta não criada ainda
+185;Chaos (Chiaotzu);Dragon Ball;750;750;Carta não criada ainda
+186;Barba Negra;One Piece;850;850;Carta não criada ainda
+Soldado;;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+187;Justiceiro (Punisher);Marvel;700;700;Carta não criada ainda
+188;Elektra;Marvel;700;700;Carta não criada ainda
+189;Asa Noturna (Robin);DC;700;750;Torna-se imune a qualquer AT por 2T seguidos, nesse tempo aumenta o próprio AT em 50%.
+190;Caveira Vermelha;Marvel;700;750;- Automatico - Ao eliminar um oponente, ganha 400 de DF e reduz 50% do AT dos demais oponentes por 2T.
+191;Duende Verde;Marvel;700;700;Implanta caos as cartas adversárias na arena, destruindo até 2 cartas de DF menor que 1000.
+192;Rocket Raccoon;Marvel;650;700;Explosivos: Reduz DF dos adversários em 50%. E elimina oponentes que ficaram com DF menor que 600.
+193;Groot;Marvel;650;650;Quando destruído, volta como escudo vivo, bloqueando até 3 AT em aliados.
+194;Gavião Arqueiro;Marvel;650;700;Atinge um oponente com 1500 de dano, ignorando qualquer escudo.
+195;Mysterio;Marvel;600;650;Anula 2 AT de oponentes à sua escolha contra si ou seus aliados.
+196;Shikamaru Nara;Naruto;650;650;Carta não criada ainda
+197;Kiba Inuzuka;Naruto;650;650;Carta não criada ainda
+198;Konohamaru (Jovem);Naruto;600;600;Carta não criada ainda
+199;Tenten;Naruto;600;600;Carta não criada ainda
+200;Senhor das Estrelas;Marvel;650;600;Carta não criada ainda
+201;Crocodile;One Piece;650;650;Carta não criada ainda
+Recruta;;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+202;Batgirl;DC;500;500;Carta não criada ainda
+203;Robin (Damian Wayne);DC;500;500;Carta não criada ainda
+204;Capuz Vermelho (Red Hood);DC;500;500;Carta não criada ainda
+205;Arsenal;DC;450;500;Carta não criada ainda
+206;Canário Negro;DC;500;450;Carta não criada ainda
+207;Soldado Invernal;Marvel;500;500;Carta não criada ainda
+208;Fera;Marvel;500;500;Carta não criada ainda
+209;Blade;Marvel;500;450;Carta não criada ainda
+210;Videl;Dragon Ball;450;450;Carta não criada ainda
+211;Alerquina;DC;450;500;Triplica seu AT, mas reduz sua DF pela metade, por 3T.
+212;Coringa;DC;400;500;Escolha uma carta da mão do oponente aleatoriamente para si.
+213;Nami;One Piece;450;500;Aumenta sua própria DF em 400 e reduz 200 PTs dos adversários na arena por 2T.
+214;Usopp;One Piece;400;500;Lança um AT extra de 500 no seu T.
+🎴 EFEITOS (Cartas de Suporte);;;;;
+ID;Nome;Universo;AT;DF;Habilidade
+1000;Criptonita;DC;—;—;Enfraquece um oponente, impedindo-o de atacar por 5T, mas permitindo que seja atacado durante esse tempo.
+1001;Buraco Negro;Original/Geral;—;—;Inverte os lados da arena, trocando todas as cartas entre os jogadores
+1002;O Guardião;Marvel;—;—;Realiza um desejo, limitado a 1 'Carta' dos baralhos, arena, cemitério ou mãos (requer 1 sacrifício).
+1003;Poder do Destino;DC;—;—;Replica os poderes de uma carta na arena, à escolha do portador, por 1T.
+1004;Ataque Duplo;Marvel;—;—;Permite que um guerreiro ataque duas vezes no mesmo turno.
+1005;Zona Fantasma;DC;—;—;Aprisiona o jogador oponente, fazendo ele peder seu próximo T. 
+1006;Reino Quântico;Marvel;—;—;Envia 1 oponente para o reino quântico por 3T, impossibilitando-o de atacar ou ser atacado durante esse tempo.
+1007;Chocolate do Boo;Dragon Ball;—;—;Transforma um guerreiro adversário em chocolate, eliminando-o imediatamente. Nv8-: sem custo. Nv9+: 1 sacrifício. Divinos: requer 2 sacrifícios.
+1008;7 Vidas;DC;—;—;Concede 2 vidas a um guerreiro escolhido, permitindo que continue na arena após ser derrotado.
+1009;Escudo Lanterna Verde;DC;—;—;Cria um poderoso escudo verde, protegendo todo o seu lado da arena por 2 turnos.
+1010;Surpresa do Coringa;DC;—;—;Troca 1 carta do campo com a mão do oponente, à escolha do possuidor.
+1011;Um Roubo Imperfeito;DC;—;—;Permite 'roubar' aleatoriamente uma carta da mão do oponente.
+1012;Apocalipse o Destruidor;DC;—;—;Destrói um guerreiro oponente, exigindo um sacrifício para ativação.
+1013;Evolução do Super Homem;DC;—;—;Aumenta o AT de um guerreiro escolhido em 800 PTS.
+1014;Guardiões do Tempo;Marvel;—;—;Anula todos os EF do oponente na arena, até que esta carta seja destruída com um AT superior a 2000.
+1015;Defesa Maravilha;DC;—;—;Reflete 1 ataque do adversário.
+1016;Simbionte;Marvel;—;—;Absorve e funde um guerreiro inimigo com um aliado por 3T, unindo suas forças. Requer 2 sacrifícios.
+1017;Double Attack;Dragon Ball;—;—;Permite que dois guerreiros aliados unam seus ataques por 1T.
+1018;O Cavalheiro;DC;—;—;Ressuscita 1 carta do cemitério, à escolha do portador.
+1019;Morte em Família;DC;—;—;Leva ao cemitério o guerreiro adversário que eliminar o seu.
+1020;Fusão Potara;Dragon Ball;—;—;"Une 2 guerreiros aliados em campo por 3T; se derrotado, o mais forte permanece vivo."
+1021;Escudo Americano;Marvel;—;—;Aumenta a DF de um guerreiro escolhido em 800.
+1022;Sacrifício de Ferro;Marvel;—;—;Permite ressuscitar uma carta do cemitério geral.
+1023;Fusão;Dragon Ball;—;—;Une dois guerreiros aliados em campo. Quando um é derrotado, ambos são eliminados.
+1024;Edo Tensei;Naruto;—;—;Utiliza 1 carta do cemitério geral com 50% dos PTs. Se o corpo permanecer vivo após 3T o EF pode ser reutilizado 1x.
+1025;Sharingan;Naruto;—;—;Replica uma HB já usada na partida, seguindo sua duração original.
+1054;Engenharia Capsule Corp;Dragon Ball;—;—;Engenharia: Escolha 1 Aliado na arena. Ele recebe +1000 de Defesa permanentemente.
+1055;Suporte Logístico;DC;—;—;Primeiro Socorros: Restaura imediatamente 2000 HP do seu Avatar (Vida do Jogador).
+1056;Intimidação Materna;Dragon Ball;—;—;Intimidação: O oponente é obrigado a pular a Fase de Batalha (ninguém ataca neste turno).
+1057;Semente dos Deuses;Dragon Ball;—;—;Semente dos Deuses: Restaura 100% de AT, DF e Habilidade de um aliado (deixa a carta nova em folha).
+1058;Iniciativa Vingadores;Marvel;—;—;Iniciativa Vingadores: Revele os 3 primeiros 'Vingadores' do deck. Escolha 1 para entrar diretamente na Arena.
+1059;Decifre-me;DC;—;—;Decifre-me: O oponente revela a mão. Você escolhe 1 carta para ele descartar.
+1060;O Campeão Chegou!;Dragon Ball;—;—;O Campeão: Faz um show que distrai o oponente. O inimigo perde o turno inteiro (Pula Compra, Estratégia e Batalha).
+1061;Bara Bara no Mi (Escape);One Piece;—;—;Bara Bara no Mi: Ative quando Buggy for derrotado. Em vez de ir ao cemitério, ele retorna para sua mão.
+1062;Negative Hollow;One Piece;—;—;Negative Hollow: Escolha um inimigo. O Ataque (AT) e a Defesa (DF) dele são invertidos por 2 turnos.
+1063;Mane Mane no Mi (Cópia);One Piece;—;—;Mane Mane no Mi: Escolha um inimigo. Um aliado seu copia o valor de Ataque (AT) dele por 1 turno.
+;ZETA (Cartas que Requerem Conjunto/Joias/Manopla/Fusões/Equipes);;;;
+ZETA - EQUIPES (Cartas de Combo);;;;;
+;Nome;Universo;AT;DF;Habilidade
+1026;X-Men;Marvel;—;—;Irmandade Mutante: Todos os mutantes aliados ganham +400 Pts. Dura 3T. (Precisa de 3 mutantes)
+1027;Vingadores;Marvel;—;—;"Reunir os Mais Fortes: Escolha 1 Vingador na arena; ele pode usar sua HB duas vezes em cada turno. Dura 2T. (Precisa de 4 Vingadores)"
+1028;Quarteto Fantástico;Marvel;—;—;Sinergia Familiar: Todos os membros do Quarteto ganham +1000 Pts e ficam imunes a EF. Dura 2T. (Precisa de 4)
+1029;Guardiões da Galáxia;Marvel;—;—;Manobra Coordenada: Todos os Guardiões atacam um mesmo alvo simultaneamente. O dano é somado e ignora escudos. Uso único. (Precisa de 3)
+1030;Liga da Justiça;DC;—;—;Força Unida: Cria um escudo de 2000 pontos que protege apenas a liga por 3T. Ao quebrar, causa 1000 de dano aos oponentes. (Precisa de 4)
+1031;Guerreiros Z;Dragon Ball;—;—;Espírito de Luta: 2 Guerreiros Z ganham +1400 de AT. Dura 2T. (Precisa de 4)
+1032;Time 7;Naruto;—;—;"Trabalho em Equipe: Os 3 atacam juntos 2T; se os alvos sobreviverem, são selados e não podem atacar ou usar HB. (Precisa de 3)"
+ZETA - CONJUNTO (Cartas de Combo);;;;;
+;Nome;Universo;AT;DF;Habilidade
+1033;Esferas do Dragão 1;Dragon Ball;—;—;Reúna as 7 Esferas do Dragão, invoque Shenlong e faça um desejo sem limites. As esferas somem da arena após o uso.
+1034;Esferas do Dragão 2;Dragon Ball;—;—;Reúna as 7 Esferas do Dragão, invoque Shenlong e faça um desejo sem limites. As esferas somem da arena após o uso.
+1035;Esferas do Dragão 3;Dragon Ball;—;—;Reúna as 7 Esferas do Dragão, invoque Shenlong e faça um desejo sem limites. As esferas somem da arena após o uso.
+1036;Esferas do Dragão 4;Dragon Ball;—;—;Reúna as 7 Esferas do Dragão, invoque Shenlong e faça um desejo sem limites. As esferas somem da arena após o uso.
+1037;Esferas do Dragão 5;Dragon Ball;—;—;Reúna as 7 Esferas do Dragão, invoque Shenlong e faça um desejo sem limites. As esferas somem da arena após o uso.
+1038;Esferas do Dragão 6;Dragon Ball;—;—;Reúna as 7 Esferas do Dragão, invoque Shenlong e faça um desejo sem limites. As esferas somem da arena após o uso.
+1039;Esferas do Dragão 7;Dragon Ball;—;—;Reúna as 7 Esferas do Dragão, invoque Shenlong e faça um desejo sem limites. As esferas somem da arena após o uso.
+1040;Batman 1;DC;6000;6000;Ao combinar as três cartas Batman, invoca um guerreiro supremo com 6.000 PTs.
+1041;Batman 2;DC;6000;6000;Ao combinar as três cartas Batman, invoca um guerreiro supremo com 6.000 PTs.
+1042;Batman 3;DC;6000;6000;Ao combinar as três cartas Batman, invoca um guerreiro supremo com 6.000 PTs.
+;ZETA - JOIAS DO INFINITO (Individualmente Utilizáveis);;;;
+;Nome;Universo;AT;DF;Habilidade
+1043;Reality Stone;Marvel;—;—;Realiza um pedido limitado à arena e cemitério. Requer um sacrifício por T, a joia é destruída caso não haja sacrifício.
+1044;Space Gem;Marvel;—;—;Permite criar portais transferindo cartas na arena. Requer um sacrifício por T, a joia é destruída caso não haja sacrifício.
+1045;Mind Stone;Marvel;—;—;Controla a alma de guerreiros vivos ou mortos. Requer um sacrifício por T, a joia é destruída caso não haja sacrifício.
+1046;Soul Stone;Marvel;—;—;Revela todas as cartas que o oponente possuir. Requer um sacrifício por T, a joia é destruída caso não haja sacrifício.
+1047;Time Stone;Marvel;—;—;Altera o tempo de uma carta, 1x por T. Requer um sacrifício por T, a joia é destruída caso não haja sacrifício.
+1048;Power Stone;Marvel;—;—;Iguala os PTs de qualquer carta a outra já usada. Requer um sacrifício por T, a joia é destruída caso não haja sacrifício.
+1049;Manopla do Infinito;Marvel;—;—;Atrai todas as Joias da arena e da mão do oponente em 4T. Com 6 joias, concede um pedido limitado a arena. Todas são destruídas após o pedido.
+;ZETA - FUSÕES;;;;
+;Nome;Universo;AT;DF;Habilidade
+1050;Gotenks;Dragon Ball;2800;2500;"Se transforma e pode atacar 2 vezes; Ganha 500 PT e reduz em 20% a DF do alvo."
+1051;Gogeta (nao criado ainda);Dragon Ball;5000;4800;Instinto Superior (Kamehameha elimina 1 oponente por T) + Ultra Ego (ao ser atingido resiste e contra-ataca). Dura 3T.
+1052;Vegetto;Dragon Ball;5000;4800;Instinto Superior (Esquiva de AT/HB/EF) + Ultra Ego (elimina quem tocar). Dura 3T.
+1053;Zamasu Fundido;Dragon Ball;4200;4000;Copia a HB de 1 oponente que ainda não foi ativada. Adicionalmente, gera um escudo com 1000 de DF para o seu lado.
