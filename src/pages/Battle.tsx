@@ -90,6 +90,7 @@ const BattleContent: React.FC = () => {
         // Phase 6:
         targetSelectionMode,
         activateAbility,
+        selectTarget,
         cancelTargetSelection
     } = useBattle();
 
@@ -705,6 +706,10 @@ const BattleContent: React.FC = () => {
                                         isPlayer={true}
                                         position="left"
                                         onClick={() => {
+                                            if (targetSelectionMode?.active && targetSelectionMode.validTargets.includes(unit.id)) {
+                                                selectTarget(unit.id);
+                                                return;
+                                            }
                                             if (currentPlayer === 'player' && phase === 'battle') {
                                                 if (unit.canAttack) {
                                                     selectUnit(selectedUnit === unit.id ? null : unit.id);
@@ -729,6 +734,11 @@ const BattleContent: React.FC = () => {
                                         isPlayer={false}
                                         position="right"
                                         onClick={() => {
+                                            if (targetSelectionMode?.active && targetSelectionMode.validTargets.includes(unit.id)) {
+                                                selectTarget(unit.id);
+                                                setInspectingCard(null);
+                                                return;
+                                            }
                                             if (selectedUnit && currentPlayer === 'player' && phase === 'battle') {
                                                 // Divine can only attack Divine
                                                 const attackerUnit = [...divineSlots.player, ...playerBoard].find(u => u?.id === selectedUnit);

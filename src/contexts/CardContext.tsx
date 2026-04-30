@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Card } from '../types';
 import { initialCards as INITIAL_CARDS } from '../data/cards';
+import { getStorageKey } from '../hooks/useLocalStorage';
 
 interface CardContextData {
     cards: Card[];
@@ -12,6 +13,8 @@ interface CardContextData {
 }
 
 const CardContext = createContext<CardContextData>({} as CardContextData);
+const CARDS_OVERRIDES_KEY = getStorageKey('dev_cards_overrides');
+const APP_ENV_MODE_KEY = getStorageKey('app_env_mode');
 
 export const CardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [mode, setMode] = useState<'DEV' | 'PROD'>('DEV');
@@ -20,9 +23,9 @@ export const CardProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initialize state from LocalStorage on mount
     useEffect(() => {
         // Critical Fix: Force clear overrides to match new database structure
-        localStorage.removeItem('dev_cards_overrides');
+        localStorage.removeItem(CARDS_OVERRIDES_KEY);
 
-        const storedMode = localStorage.getItem('app_env_mode');
+        const storedMode = localStorage.getItem(APP_ENV_MODE_KEY);
         if (storedMode === 'DEV' || storedMode === 'PROD') {
             setMode(storedMode);
         }
@@ -32,7 +35,7 @@ export const CardProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Reload cards when mode changes
     useEffect(() => {
-        localStorage.setItem('app_env_mode', mode);
+        localStorage.setItem(APP_ENV_MODE_KEY, mode);
         loadCards(mode);
     }, [mode]);
 
@@ -42,7 +45,7 @@ export const CardProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
             // DEV Mode: Merge with overrides
             try {
-                const overrides = JSON.parse(localStorage.getItem('dev_cards_overrides') || '{}');
+                const overrides = JSON.parse(localStorage.getItem(CARDS_OVERRIDES_KEY) || '{}');
                 const mergedCards = INITIAL_CARDS.map(card => {
                     if (overrides[card.id]) {
                         return { ...card, ...overrides[card.id] };
@@ -67,19 +70,19 @@ export const CardProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
-        const overrides = JSON.parse(localStorage.getItem('dev_cards_overrides') || '{}');
+        const overrides = JSON.parse(localStorage.getItem(CARDS_OVERRIDES_KEY) || '{}');
 
         // Accumulate updates
         const currentOverride = overrides[id] || {};
         overrides[id] = { ...currentOverride, ...updates };
 
-        localStorage.setItem('dev_cards_overrides', JSON.stringify(overrides));
+        localStorage.setItem(CARDS_OVERRIDES_KEY, JSON.stringify(overrides));
         loadCards('DEV');
     };
 
     const resetChanges = () => {
         if (window.confirm('Tem certeza que deseja descartar todas as alterações locais?')) {
-            localStorage.removeItem('dev_cards_overrides');
+            localStorage.removeItem(CARDS_OVERRIDES_KEY);
             loadCards('DEV');
         }
     };

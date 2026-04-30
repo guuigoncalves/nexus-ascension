@@ -77,7 +77,7 @@ function App() {
                   }
                 />
               </Routes>
-              <DebugFloatingMenu />
+              {import.meta.env.DEV && <DebugFloatingMenu />}
             </GameProvider>
           </CardProvider>
         </AuthProvider>

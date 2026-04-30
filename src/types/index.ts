@@ -2,24 +2,37 @@ export type Universe = 'Marvel' | 'DC' | 'Dragon Ball' | 'Naruto' | 'One Piece' 
 
 export type Rarity = 'Supremo' | 'Destruidor' | 'Lendário' | 'Titã' | 'Elite' | 'Veterano' | 'Gladiador' | 'Paladino' | 'Soldado' | 'Recruta' | 'Efeito' | 'Zeta' | 'Fusão';
 
-export type EffectTrigger = 'onPlay' | 'onAttack' | 'onDeath' | 'passive' | 'onActivate';
-export type EffectType = 'buffAtk' | 'buffDef' | 'damage' | 'heal' | 'draw' | 'summon' | 'revealHand' | 'skipTurn' | 'skipBattlePhase' | 'healHero' | 'search' | 'invertStats' | 'copyAtk' | 'destroy' | 'banish' | 'returnToHand' | 'discard' | 'buffAtkScaling' | 'silence' | 'mindControl';
+export const EFFECT_TRIGGERS = ['onPlay', 'onAttack', 'onDeath', 'passive', 'onActivate'] as const;
+export type EffectTrigger = typeof EFFECT_TRIGGERS[number];
+
+export const EFFECT_TYPES = ['buffAtk', 'buffDef', 'damage', 'heal', 'draw', 'summon', 'revealHand', 'skipTurn', 'skipBattlePhase', 'healHero', 'search', 'invertStats', 'copyAtk', 'destroy', 'banish', 'returnToHand', 'discard', 'buffAtkScaling', 'silence', 'mindControl'] as const;
+export type EffectType = typeof EFFECT_TYPES[number];
+
+export const EFFECT_TARGETS = ['self', 'enemy', 'allies', 'opponent', 'any'] as const;
+export type EffectTarget = typeof EFFECT_TARGETS[number];
+
+export const EFFECT_CONDITIONS = ['handSize', 'graveyardSize', 'opponentFieldSize'] as const;
+export type EffectCondition = typeof EFFECT_CONDITIONS[number];
+
+export const EFFECT_OPERATIONS = ['add', 'multiply', 'set'] as const;
+export type EffectOperation = typeof EFFECT_OPERATIONS[number];
 
 export interface CardEffect {
     trigger: EffectTrigger;
     type: EffectType;
     value: number;
-    target?: 'self' | 'enemy' | 'allies' | 'opponent' | 'any';
+    target?: EffectTarget;
     description?: string;
     scalingFactor?: number;
-    condition?: 'handSize' | 'graveyardSize' | 'opponentFieldSize';
+    condition?: EffectCondition;
     duration?: number;
-    operation?: 'add' | 'multiply' | 'set';
+    operation?: EffectOperation;
     requiresTarget?: boolean; // Se false, executa automaticamente sem pedir alvo
 }
 
 export interface Card {
     id: string;
+    cardId?: string;
     name: string;
     universe: Universe;
     rarity: Rarity;

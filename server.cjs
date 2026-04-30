@@ -34,38 +34,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-app.post('/upload-card-image', upload.single('image'), (req, res) => {
-    try {
-        const { cardId } = req.body;
-        const file = req.file;
-
-        if (!cardId || !file) {
-            return res.status(400).json({ error: 'Missing cardId or image file' });
-        }
-
-        const ext = path.extname(file.originalname);
-        const newFilename = `${cardId}${ext}`; // e.g. "105.png"
-        const targetPath = path.join(cardsDir, newFilename);
-
-        // Rename/Move the temp file to the final path
-        fs.renameSync(file.path, targetPath);
-
-        // Also clean up any other extensions for this card? 
-        // (e.g. if we had 105.jpg and now upload 105.png, we should probably delete 105.jpg to avoid confusion, 
-        // but for now let's just overwrite)
-
-        console.log(`Updated image for Card ${cardId}: ${newFilename}`);
-
-        res.json({
-            success: true,
-            filename: newFilename,
-            url: `/cards/${newFilename}`
-        });
-
-    } catch (error) {
-        console.error('Upload Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+app.post('/upload-card-image', (req, res) => {
+    return res.status(403).json({
+        error: 'Card image upload is disabled. Static assets are the source of truth.'
+    });
 });
 
 app.listen(PORT, () => {

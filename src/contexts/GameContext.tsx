@@ -1,5 +1,6 @@
 import React, { createContext, useContext, type ReactNode } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { initialCards as INITIAL_CARDS } from '../data/cards';
 
 interface PlayerProfile {
     name: string;
@@ -27,10 +28,10 @@ interface PackSlot {
 
 interface GameState {
     profile: PlayerProfile;
-    deck: number[];
+    deck: string[];
     packSlots: PackSlot[];
     updateProfile: (profile: Partial<PlayerProfile>) => void;
-    updateDeck: (deck: number[]) => void;
+    updateDeck: (deck: string[]) => void;
     updatePackSlots: (slots: PackSlot[]) => void;
     labClearHand: () => void;
 }
@@ -53,7 +54,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     });
 
-    const [deck, setDeck] = useLocalStorage<number[]>('jc-deck', Array(8).fill(0).map((_, i) => i));
+    const [deck, setDeck] = useLocalStorage<string[]>('jc-deck', INITIAL_CARDS.slice(0, 8).map(card => card.id));
 
     const [packSlots, setPackSlots] = useLocalStorage<PackSlot[]>('jc-pack-slots', [
         { id: 1, isOpening: false, isReady: false, timeRemaining: 0 },
@@ -67,7 +68,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setProfile({ ...profile, ...updates });
     };
 
-    const updateDeck = (newDeck: number[]) => {
+    const updateDeck = (newDeck: string[]) => {
         setDeck(newDeck);
     };
 

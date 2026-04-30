@@ -7,18 +7,20 @@ import { ARENAS } from '../constants/arenas';
 import { getDeckSizeLimit } from '../utils/deckValidator';
 import { CardDetailModal } from '../components/CardDetailModal';
 import { CardVisual } from '../components/CardVisual';
+import { getStorageKey } from '../hooks/useLocalStorage';
 
 // --- DATA CONSTANTS ---
 const RARITIES = ['Soldado', 'Paladino', 'Gladiador', 'Veterano', 'Elite', 'Titã', 'Lendário', 'Destruidor', 'Supremo', 'Fusão', 'Zeta', 'Efeito'];
 const UNIVERSES = ['Marvel', 'DC', 'Dragon Ball', 'Naruto', 'One Piece', 'God of War', 'One Punch Man'];
+const STORED_DECKS_KEY = getStorageKey('card_wars_stored_decks');
 
 // --- SUB-COMPONENTS ---
 
 interface DeckSlotProps {
     index: number;
-    cardId: number | null;
+    cardId: string | null;
     card: any;
-    onDrop: (index: number, cardId: number) => void;
+    onDrop: (index: number, cardId: string) => void;
     onClick: (card: any) => void;
     onRemove: (index: number) => void;
     viewMode?: 'grid' | 'list';
@@ -34,7 +36,7 @@ const DeckSlot: React.FC<DeckSlotProps> = ({ index, cardId, card, onDrop, onClic
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        const droppedCardId = parseInt(e.dataTransfer.getData('cardId'));
+        const droppedCardId = e.dataTransfer.getData('cardId');
         if (droppedCardId) {
             onDrop(index, droppedCardId);
         }
@@ -273,9 +275,9 @@ export const Deck: React.FC = () => {
 
     // --- MULTI-DECK MANAGEMENT ---
     const [activeDeckIndex, setActiveDeckIndex] = useState(0);
-    const [storedDecks, setStoredDecks] = useState<(number | null)[][]>(() => {
+    const [storedDecks, setStoredDecks] = useState<(string | null)[][]>(() => {
         try {
-            const saved = localStorage.getItem('card_wars_stored_decks');
+            const saved = localStorage.getItem(STORED_DECKS_KEY);
             if (saved) {
                 return JSON.parse(saved);
             }
@@ -288,12 +290,12 @@ export const Deck: React.FC = () => {
 
     // Save storedDecks whenever it changes
     useEffect(() => {
-        localStorage.setItem('card_wars_stored_decks', JSON.stringify(storedDecks));
+        localStorage.setItem(STORED_DECKS_KEY, JSON.stringify(storedDecks));
     }, [storedDecks]);
 
     // Initialize deckSlots with the active stored deck slot (0 by default) or fallback to savedDeck from context if storage is empty
-    const [deckSlots, setDeckSlots] = useState<(number | null)[]>(() => {
-        const saved = localStorage.getItem('card_wars_stored_decks');
+    const [deckSlots, setDeckSlots] = useState<(string | null)[]>(() => {
+        const saved = localStorage.getItem(STORED_DECKS_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
             // Return the first deck from storage, ensuring it respects current required size
@@ -348,13 +350,13 @@ export const Deck: React.FC = () => {
         return allowed;
     }, [currentArena.id]);
 
-    const deckSet = useMemo(() => new Set(deckSlots.filter((id): id is number => id !== null)), [deckSlots]);
+    const deckSet = useMemo(() => new Set(deckSlots.filter((id): id is string => id !== null)), [deckSlots]);
 
     // Deck Statistics
     const deckStats = useMemo(() => {
         const deckCards = deckSlots
-            .filter((id): id is number => id !== null)
-            .map(id => cards.find(c => parseInt(c.id) === id))
+            .filter((id): id is string => id !== null)
+            .map(id => cards.find(c => c.id === id))
             .filter(Boolean);
 
         const rarityCount: Record<string, number> = {};
@@ -370,8 +372,8 @@ export const Deck: React.FC = () => {
         const isComplete = totalCards === requiredDeckSize;
         const duplicates = deckCards.length !== new Set(deckCards.map(c => c.id)).size;
 
-        const totalAtk = deckCards.reduce((sum, c) => sum + (parseInt(c.atk) || 0), 0);
-        const totalDef = deckCards.reduce((sum, c) => sum + (parseInt(c.def) || 0), 0);
+        const totalAtk = deckCards.reduce((sum, c) => sum + (Number(c.atk) || 0), 0);
+        const totalDef = deckCards.reduce((sum, c) => sum + (Number(c.def) || 0), 0);
 
         return {
             totalCards,
@@ -389,7 +391,6 @@ export const Deck: React.FC = () => {
         const owned = new Set(profile.ownedCards || []);
         let filtered = cards.map(c => ({
             ...c,
-            parsedId: parseInt(c.id),
             isAllowed: allowedRarities.has(c.rarity),
             isOwned: owned.has(c.id)
         }));
@@ -398,7 +399,7 @@ export const Deck: React.FC = () => {
         if (filterUniverse !== 'all') filtered = filtered.filter(c => c.universe === filterUniverse);
         if (searchTerm) filtered = filtered.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        filtered = filtered.filter(c => !deckSet.has(c.parsedId));
+        filtered = filtered.filter(c => !deckSet.has(c.id));
 
         return {
             unlocked: filtered.filter(c => c.isAllowed),
@@ -418,7 +419,7 @@ export const Deck: React.FC = () => {
     }, [requiredDeckSize]);
 
     useEffect(() => {
-        const validIds = deckSlots.filter((id): id is number => id !== null);
+        const validIds = deckSlots.filter((id): id is string => id !== null);
         if (JSON.stringify(validIds) !== JSON.stringify(savedDeck)) {
             const unique = Array.from(new Set(validIds));
             updateDeck(unique);
@@ -427,7 +428,7 @@ export const Deck: React.FC = () => {
 
     // --- ACTIONS ---
 
-    const handleDeckSlotDrop = (slotIndex: number, cardId: number) => {
+    const handleDeckSlotDrop = (slotIndex: number, cardId: string) => {
         const existingIndex = deckSlots.indexOf(cardId);
         setDeckSlots(prev => {
             const next = [...prev];
@@ -464,7 +465,7 @@ export const Deck: React.FC = () => {
     const handleRandomizeDeck = () => {
         const pool = cards
             .filter(c => allowedRarities.has(c.rarity))
-            .map(c => parseInt(c.id));
+            .map(c => c.id);
 
         const shuffled = [...pool].sort(() => 0.5 - Math.random());
         const newDeck = shuffled.slice(0, requiredDeckSize);
@@ -761,8 +762,8 @@ export const Deck: React.FC = () => {
                                 {isDeckHere ? (
                                     // CONTEÚDO: DECK (5 Cols)
                                     <div className={`grid grid-cols-${gridCols} gap-4`}>
-                                        {deckSlots.map((cardId, idx) => {
-                                            const card = cardId ? cards.find(c => parseInt(c.id) === cardId) : null;
+                                            {deckSlots.map((cardId, idx) => {
+                                            const card = cardId ? cards.find(c => c.id === cardId) : null;
                                             return (
                                                 <DeckSlot
                                                     key={idx}
@@ -787,7 +788,7 @@ export const Deck: React.FC = () => {
                                                     isLocked={false}
                                                     onClick={setSelectedCard}
                                                     onDragStart={(e) => {
-                                                        e.dataTransfer.setData('cardId', card.parsedId.toString());
+                                                        e.dataTransfer.setData('cardId', card.id);
                                                     }}
                                                     viewMode="grid"
                                                 />
@@ -846,7 +847,7 @@ export const Deck: React.FC = () => {
                                     // CONTEÚDO: DECK (Right Panel - Responsive Grid/List)
                                     <div className={`${viewMode === 'list' ? 'flex flex-col gap-0' : 'grid grid-cols-4 gap-4'}`}>
                                         {deckSlots.map((cardId, idx) => {
-                                            const card = cardId ? cards.find(c => parseInt(c.id) === cardId) : null;
+                                            const card = cardId ? cards.find(c => c.id === cardId) : null;
                                             return (
                                                 <DeckSlot
                                                     key={idx}
@@ -872,7 +873,7 @@ export const Deck: React.FC = () => {
                                                     isLocked={false}
                                                     onClick={setSelectedCard}
                                                     onDragStart={(e) => {
-                                                        e.dataTransfer.setData('cardId', card.parsedId.toString());
+                                                        e.dataTransfer.setData('cardId', card.id);
                                                     }}
                                                     viewMode={viewMode}
                                                 />

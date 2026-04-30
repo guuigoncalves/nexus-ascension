@@ -125,12 +125,12 @@ export const Home: React.FC = () => {
             });
             return;
         }
-        const availableIndices = cards.map((_, i) => i).filter(i => !deck.includes(i));
-        for (let i = availableIndices.length - 1; i > 0; i--) {
+        const availableCardIds = cards.map(card => card.id).filter(cardId => !deck.includes(cardId));
+        for (let i = availableCardIds.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
+            [availableCardIds[i], availableCardIds[j]] = [availableCardIds[j], availableCardIds[i]];
         }
-        const picked = availableIndices.slice(0, needed);
+        const picked = availableCardIds.slice(0, needed);
         const newDeck = [...deck, ...picked];
         updateDeck(newDeck);
         setShowDeckWarning(false);

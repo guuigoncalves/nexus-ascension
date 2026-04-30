@@ -4,14 +4,25 @@ import { useGame } from './GameContext';
 import { useCards } from './CardContext';
 import { getSacrificeCost } from '../utils/cardUtils';
 import { parseAbilityToEffects } from '../utils/AbilityEngine';
+import { resolveCombat } from '../utils/combatEngine';
 
 interface Unit extends Card {
+    cardId: string;
     currentHealth: number;
     currentAttack: number;
     canAttack: boolean;
+    remainingAttacks?: number;
+    maxAttacksPerTurn?: number;
     isFaceDown?: boolean;
     isTaunt?: boolean;
     isSilenced?: boolean;
+    isReady?: boolean;
+    hasUsedAbility?: boolean;
+    charges?: number;
+    karmaTargetId?: string;
+    karmaStage?: 1 | 2;
+    karmaStoredAttack?: number;
+    karmaStoredDefense?: number;
     counters?: { [key: string]: number };
 }
 
@@ -122,13 +133,40 @@ interface BattleContextType extends BattleState {
 
 const BattleContext = createContext<BattleContextType | undefined>(undefined);
 
+const BATTLE_MOJIBAKE_PATTERN = /Ã.|Â.|â[\u0080-\u00BF]/;
+
+const normalizeBattleText = (value: string) => {
+    if (!BATTLE_MOJIBAKE_PATTERN.test(value)) {
+        return value;
+    }
+
+    let nextValue = value;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (!BATTLE_MOJIBAKE_PATTERN.test(nextValue)) {
+            break;
+        }
+
+        const decoded = new TextDecoder('utf-8').decode(
+            Uint8Array.from(nextValue, character => character.charCodeAt(0))
+        );
+
+        if (!decoded || decoded === nextValue) {
+            break;
+        }
+
+        nextValue = decoded;
+    }
+
+    return nextValue.replace(/\uFFFD/g, '');
+};
+
 
 export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { deck } = useGame();
     const { cards } = useCards();
 
-    // Critical Fix: Clear dev overrides to prevent editor lock
-    localStorage.clear();
+    // Preserva estados persistidos; limpar o storage aqui causava perda global de dados.
 
     const [state, setState] = useState<BattleState>({
         turn: 1,
@@ -370,6 +408,23 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         return modifiedUnit;
     };
 
+    const getUnitEffects = (unit: Unit): CardEffect[] => {
+        const canonicalCard = cards.find(c => c.id === unit.cardId);
+        const baseEffects = unit.effects || canonicalCard?.effects || [];
+        const parsedEffects = parseAbilityToEffects(canonicalCard?.description || unit.description || '', unit.cardId);
+
+        return [...baseEffects, ...parsedEffects.filter(parsed =>
+            !baseEffects.some(existing =>
+                existing.trigger === parsed.trigger
+                && existing.type === parsed.type
+                && existing.target === parsed.target
+            )
+        )];
+    };
+
+    const hasManualTargetSelection = (unit: Unit): boolean =>
+        getUnitEffects(unit).some(effect => effect.trigger === 'onActivate' && effect.requiresTarget === true);
+
     const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
 
     // Lock to prevent AI from executing multiple times or looping
@@ -379,10 +434,10 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (cards.length === 0) return;
 
         // Create unique instances of each card (no duplicates)
-        const uniqueDeck = deck.map(index => {
-            const card = cards[index];
+        const uniqueDeck = deck.map(cardId => {
+            const card = cards.find(c => c.id === cardId);
             if (!card) return null;
-            return { ...card, id: `${card.id}-${Math.random().toString(36).substr(2, 9)}` };
+            return { ...card, cardId: card.id, id: `${card.id}-${Math.random().toString(36).substr(2, 9)}` };
         }).filter((c): c is Card => c !== null);
 
         // Shuffle
@@ -581,6 +636,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     // Create Unit
                     const newUnit: Unit = {
                         ...randomCard,
+                        cardId: randomCard.cardId || randomCard.id,
                         currentHealth: randomCard.def || 1000,
                         currentAttack: randomCard.atk || 1000,
                         canAttack: false,
@@ -608,48 +664,102 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         // Attack Random Unit
                         const target = validTargets[Math.floor(Math.random() * validTargets.length)];
 
-                        // 2.1 COMBAT RULES (Unified with Player)
-                        let attackerDies = false;
-                        let targetDies = false;
-                        let defenderNewDef = target.currentHealth;
+                        const invisibleProtector =
+                            [...newState.playerBoard, ...newState.divineSlots.player].find((u): u is Unit =>
+                                !!u && u.cardId === '163' && u.id !== target.id && (u.charges || 0) > 0
+                            ) || null;
 
-                        if (unit.currentAttack < target.currentHealth) {
-                            attackerDies = true;
-                            defenderNewDef = target.currentHealth - unit.currentAttack;
-                        } else {
-                            targetDies = (target.currentHealth - unit.currentAttack) <= 0;
-                            attackerDies = (unit.currentHealth - target.currentHealth) <= 0;
-                            defenderNewDef = target.currentHealth - unit.currentAttack;
+                        if (target.cardId === '144' && target.isReady) {
+                            newState.playerBoard = newState.playerBoard.map((u, i) => {
+                                if (!u) return null;
+                                if (i === target.originalIndex) {
+                                    return { ...u, isReady: false, hasUsedAbility: true };
+                                }
+                                return u;
+                            });
+
+                            newState.opponentBoard = newState.opponentBoard.map((u, i) => {
+                                if (!u) return null;
+                                if (i === unitIndex) {
+                                    return { ...u, canAttack: false };
+                                }
+                                return u;
+                            });
+
+                            newState.playerLog = [normalizeBattleText(`${target.name} encolheu e desviou do ataque de ${unit.name}!`), ...newState.playerLog].slice(0, 20);
+                            return;
                         }
+
+                        if (invisibleProtector) {
+                            const remainingCharges = Math.max(0, (invisibleProtector.charges || 0) - 1);
+                            const updateProtector = (u: Unit | null) => {
+                                if (!u || u.id !== invisibleProtector.id) return u;
+                                return {
+                                    ...u,
+                                    charges: remainingCharges,
+                                    currentHealth: u.currentHealth + 300,
+                                    isReady: remainingCharges > 0
+                                };
+                            };
+
+                            newState.playerBoard = newState.playerBoard.map(updateProtector);
+                            newState.divineSlots = {
+                                ...newState.divineSlots,
+                                player: newState.divineSlots.player.map(updateProtector)
+                            };
+                            newState.opponentBoard = newState.opponentBoard.map((u, i) => {
+                                if (!u) return null;
+                                if (i === unitIndex) {
+                                    return { ...u, canAttack: false };
+                                }
+                                return u;
+                            });
+                            newState.playerLog = [normalizeBattleText(`${invisibleProtector.name} protegeu ${target.name} do ataque de ${unit.name}!`), ...newState.playerLog].slice(0, 20);
+                            return;
+                        }
+
+                        const combat = resolveCombat(
+                            { attack: unit.currentAttack, defense: unit.currentHealth },
+                            { attack: target.currentAttack, defense: target.currentHealth },
+                            newState.playerHealth
+                        );
 
                         // Damage Player Unit (Permanent DEF loss and Reveal)
                         newState.playerBoard = newState.playerBoard.map((u, i) => {
                             if (!u) return null;
                             if (i === target.originalIndex) {
-                                if (targetDies) return null;
-                                return { ...u, currentHealth: defenderNewDef, isFaceDown: false };
+                                if (combat.defenderDies) return null;
+                                return { ...u, currentHealth: combat.newDefenderDef, isFaceDown: false };
                             }
                             return u;
                         });
 
-                        // Damage Opponent Unit (Recoil)
+                        // Update AI attacker according to canonical combat engine
                         newState.opponentBoard = newState.opponentBoard.map((u, i) => {
                             if (!u) return null;
                             if (i === unitIndex) {
-                                if (attackerDies) return null;
-                                return { ...u, currentHealth: u.currentHealth - target.currentAttack, canAttack: false };
+                                if (combat.attackerDies) return null;
+                                return { ...u, canAttack: false };
                             }
                             return u;
                         });
 
-                        const aiLogEntry = `${unit.name} atacou ${target.name} causando ${unit.currentAttack} de dano!`;
+                        newState.playerHealth = Math.max(0, newState.playerHealth - combat.damageToPlayer);
+                        if (combat.defenderDies) {
+                            newState.playerGraveyard = [...newState.playerGraveyard, { ...target }];
+                        }
+                        if (combat.attackerDies) {
+                            newState.opponentGraveyard = [...newState.opponentGraveyard, { ...unit }];
+                        }
+
+                        const aiLogEntry = normalizeBattleText(`${unit.name} atacou ${target.name} causando ${unit.currentAttack} de dano!`);
                         newState.playerLog = [aiLogEntry, ...newState.playerLog].slice(0, 20);
 
                     } else {
                         // Attack Hero
                         newState.playerHealth = Math.max(0, newState.playerHealth - unit.currentAttack);
 
-                        const heroLogEntry = `${unit.name} atacou você diretamente causando ${unit.currentAttack} de dano!`;
+                        const heroLogEntry = normalizeBattleText(`${unit.name} atacou voc\u00EA diretamente causando ${unit.currentAttack} de dano!`);
                         newState.playerLog = [heroLogEntry, ...newState.playerLog].slice(0, 20);
 
                         // Mark as attacked
@@ -733,7 +843,13 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
                     if (nextPlayer === 'player') {
                         updated.canAttack = true; // Start of player turn
+                        updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
                         updated.isSilenced = false; // Turn-based reset
+                        updated.isReady = hasManualTargetSelection(updated) && !updated.hasUsedAbility;
+                        if (updated.cardId === '163' && (updated.charges || 0) > 0) {
+                            updated.charges = 0;
+                            updated.isReady = false;
+                        }
                         // Turn-based logic
                         if (updated.name === 'Hulk') {
                             const turns = (updated.counters?.turns || 0) + 1;
@@ -755,7 +871,13 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
                     if (nextPlayer === 'opponent') {
                         updated.canAttack = true; // Start of opponent turn
+                        updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
                         updated.isSilenced = false; // Turn-based reset
+                        updated.isReady = hasManualTargetSelection(updated) && !updated.hasUsedAbility;
+                        if (updated.cardId === '163' && (updated.charges || 0) > 0) {
+                            updated.charges = 0;
+                            updated.isReady = false;
+                        }
                         // AI turn counters could be added here
                     }
 
@@ -763,8 +885,26 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 }),
 
                 divineSlots: {
-                    player: prev.divineSlots.player.map(u => u ? { ...u, isSilenced: nextPlayer === 'player' ? false : u.isSilenced, canAttack: nextPlayer === 'player' ? true : u.canAttack } : null),
-                    opponent: prev.divineSlots.opponent.map(u => u ? { ...u, isSilenced: nextPlayer === 'opponent' ? false : u.isSilenced, canAttack: nextPlayer === 'opponent' ? true : u.canAttack } : null),
+                    player: prev.divineSlots.player.map(u => u ? {
+                        ...u,
+                        isSilenced: nextPlayer === 'player' ? false : u.isSilenced,
+                        canAttack: nextPlayer === 'player' ? true : u.canAttack,
+                        remainingAttacks: nextPlayer === 'player' ? (u.maxAttacksPerTurn ?? 1) : u.remainingAttacks,
+                        charges: nextPlayer === 'player' && u.cardId === '163' ? 0 : u.charges,
+                        isReady: nextPlayer === 'player'
+                            ? (u.cardId === '163' ? false : hasManualTargetSelection(u) && !u.hasUsedAbility)
+                            : u.isReady
+                    } : null),
+                    opponent: prev.divineSlots.opponent.map(u => u ? {
+                        ...u,
+                        isSilenced: nextPlayer === 'opponent' ? false : u.isSilenced,
+                        canAttack: nextPlayer === 'opponent' ? true : u.canAttack,
+                        remainingAttacks: nextPlayer === 'opponent' ? (u.maxAttacksPerTurn ?? 1) : u.remainingAttacks,
+                        charges: nextPlayer === 'opponent' && u.cardId === '163' ? 0 : u.charges,
+                        isReady: nextPlayer === 'opponent'
+                            ? (u.cardId === '163' ? false : hasManualTargetSelection(u) && !u.hasUsedAbility)
+                            : u.isReady
+                    } : null),
                 },
 
                 hasPlayedWarriorThisTurn: false,
@@ -776,6 +916,66 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     ? prev.playerBoard.filter(u => u && u.rarity === 'Supremo').map(u => u!.id)
                     : [],
             };
+
+            const activeBoard = nextPlayer === 'player'
+                ? [...newState.playerBoard, ...newState.divineSlots.player]
+                : [...newState.opponentBoard, ...newState.divineSlots.opponent];
+            const opposingBoardKey = nextPlayer === 'player' ? 'opponentBoard' : 'playerBoard';
+            const opposingDivineKey = nextPlayer === 'player' ? 'opponent' : 'player';
+
+            activeBoard.forEach(unit => {
+                if (!unit || unit.cardId !== '136' || unit.karmaStage !== 1 || !unit.karmaTargetId) {
+                    return;
+                }
+
+                const updateKarmaTarget = (target: Unit | null) => {
+                    if (!target || target.id !== unit.karmaTargetId) return target;
+                    return {
+                        ...target,
+                        currentHealth: 0
+                    };
+                };
+
+                newState[opposingBoardKey] = newState[opposingBoardKey].map(updateKarmaTarget);
+                newState.divineSlots = {
+                    ...newState.divineSlots,
+                    [opposingDivineKey]: newState.divineSlots[opposingDivineKey].map(updateKarmaTarget)
+                };
+
+                const karmicDefense = unit.karmaStoredDefense ?? 0;
+                const updateBoruto = (candidate: Unit | null) => {
+                    if (!candidate || candidate.id !== unit.id) return candidate;
+                    return {
+                        ...candidate,
+                        currentHealth: candidate.currentHealth + karmicDefense,
+                        karmaStage: 2,
+                        karmaTargetId: undefined,
+                        karmaStoredAttack: undefined,
+                        karmaStoredDefense: undefined,
+                        isReady: false
+                    };
+                };
+
+                if (nextPlayer === 'player') {
+                    newState.playerBoard = newState.playerBoard.map(updateBoruto);
+                    newState.divineSlots = {
+                        ...newState.divineSlots,
+                        player: newState.divineSlots.player.map(updateBoruto)
+                    };
+                } else {
+                    newState.opponentBoard = newState.opponentBoard.map(updateBoruto);
+                    newState.divineSlots = {
+                        ...newState.divineSlots,
+                        opponent: newState.divineSlots.opponent.map(updateBoruto)
+                    };
+                }
+
+                newState.toasts = [...newState.toasts, {
+                    id: `karma-${unit.id}-${Date.now()}`,
+                    message: `${unit.name} completou o Karma e absorveu a DEF do alvo!`,
+                    type: 'info'
+                }];
+            });
 
             return newState;
         });
@@ -853,7 +1053,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const executeEffect = (effect: CardEffect, source: Unit, targetId?: string) => {
         // Target Logic: If target needed but not provided, enter selection mode
-        if (!targetId && (effect.target === 'enemy' || effect.target === 'any' || (effect.type === 'destroy' || effect.type === 'banish' || effect.type === 'returnToHand'))) {
+        if (!targetId && (effect.requiresTarget === true || effect.target === 'enemy' || effect.target === 'any' || (effect.type === 'destroy' || effect.type === 'banish' || effect.type === 'returnToHand'))) {
             // Check if there ARE valid targets
             const opponentUnits = [...state.opponentBoard, ...state.divineSlots.opponent].filter(u => u !== null).map(u => u!.id);
             // If strictly enemy targeting
@@ -889,6 +1089,107 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
         setState(prev => {
             let newState = { ...prev };
+
+            const updateSourceUnit = (updater: (unit: Unit) => Unit) => {
+                newState.playerBoard = newState.playerBoard.map(u => u && u.id === source.id ? updater(u) : u);
+                newState.opponentBoard = newState.opponentBoard.map(u => u && u.id === source.id ? updater(u) : u);
+                newState.divineSlots = {
+                    player: newState.divineSlots.player.map(u => u && u.id === source.id ? updater(u) : u),
+                    opponent: newState.divineSlots.opponent.map(u => u && u.id === source.id ? updater(u) : u)
+                };
+            };
+
+            if (source.cardId === '133' && effect.trigger === 'onPlay') {
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    maxAttacksPerTurn: 2,
+                    remainingAttacks: 2
+                }));
+                addToast(`${source.name} entrou transformado e pode atacar 2 vezes por turno!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '136' && targetId) {
+                const sourceIsPlayer = newState.playerBoard.some(u => u?.id === source.id) || newState.divineSlots.player.some(u => u?.id === source.id);
+                const targetBoard = sourceIsPlayer ? newState.opponentBoard : newState.playerBoard;
+                const targetDivine = sourceIsPlayer ? newState.divineSlots.opponent : newState.divineSlots.player;
+                const target = [...targetBoard, ...targetDivine].find((u): u is Unit => !!u && u.id === targetId);
+
+                if (!target) {
+                    addToast('Alvo de Karma não encontrado!', 'warning');
+                    return prev;
+                }
+
+                const absorbedAttack = target.currentAttack;
+                const absorbedDefense = target.currentHealth;
+                const applyTargetKarma = (unit: Unit | null) => {
+                    if (!unit || unit.id !== targetId) return unit;
+                    return {
+                        ...unit,
+                        currentAttack: 0
+                    };
+                };
+
+                if (sourceIsPlayer) {
+                    newState.opponentBoard = newState.opponentBoard.map(applyTargetKarma);
+                    newState.divineSlots = {
+                        ...newState.divineSlots,
+                        opponent: newState.divineSlots.opponent.map(applyTargetKarma)
+                    };
+                } else {
+                    newState.playerBoard = newState.playerBoard.map(applyTargetKarma);
+                    newState.divineSlots = {
+                        ...newState.divineSlots,
+                        player: newState.divineSlots.player.map(applyTargetKarma)
+                    };
+                }
+
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    currentAttack: unit.currentAttack + absorbedAttack,
+                    karmaTargetId: targetId,
+                    karmaStage: 1,
+                    karmaStoredAttack: absorbedAttack,
+                    karmaStoredDefense: absorbedDefense,
+                    isReady: false,
+                    hasUsedAbility: true
+                }));
+
+                addToast(`${source.name} marcou ${target.name} com Karma e absorveu ${absorbedAttack} de ATK!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '137') {
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    remainingAttacks: 3,
+                    isReady: false,
+                    hasUsedAbility: true
+                }));
+                addToast(`${source.name} abriu as Portas e ficou com 3 ataques neste turno!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '144') {
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    isReady: true,
+                    hasUsedAbility: true
+                }));
+                addToast(`${source.name} encolheu e está pronto para esquivar do próximo ataque!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '163') {
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    charges: 3,
+                    isReady: true,
+                    hasUsedAbility: true
+                }));
+                addToast(`${source.name} ativou o Campo de Força com 3 cargas!`, 'info');
+                return newState;
+            }
 
             // Determine targets based on effect.target
             let targets: Unit[] = [];
@@ -973,8 +1274,8 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         else if (effect.condition === 'graveyardSize') val = (targetIsPlayer ? newState.playerGraveyard.length : newState.opponentGraveyard.length) * effect.scalingFactor;
                     }
 
-                    if (effect.type === 'buffAtk' || effect.type === 'buffAtkScaling') return { ...u, currentAttack: u.currentAttack + val };
-                    if (effect.type === 'buffDef') return { ...u, currentHealth: u.currentHealth + val }; // Using currentHealth as Def broadly? Or maxHealth? currentHealth usually.
+                    if (effect.type === 'buffAtk' || effect.type === 'buffAtkScaling') return { ...u, currentAttack: effect.operation === 'multiply' ? u.currentAttack * val : u.currentAttack + val };
+                    if (effect.type === 'buffDef') return { ...u, currentHealth: effect.operation === 'multiply' ? u.currentHealth * val : u.currentHealth + val }; // Using currentHealth as Def broadly? Or maxHealth? currentHealth usually.
                     if (effect.type === 'damage') return { ...u, currentHealth: u.currentHealth - val };
                     if (effect.type === 'heal') return { ...u, currentHealth: u.currentHealth + val };
                     if (effect.type === 'invertStats') return { ...u, currentAttack: u.currentHealth, currentHealth: u.currentAttack };
@@ -1119,7 +1420,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setState(prev => {
             // CORE ENGINE 5: EFFECT CARD INTERCEPTION
             const isEffectCard = card.rarity === 'Efeito' || card.rarity === 'Zeta';
-            if (!forcePlay && isEffectCard && !playFaceDown && Number(card.id) >= 1000 && Number(card.id) <= 1025) {
+            if (!forcePlay && isEffectCard && !playFaceDown && /^10(?:0\d|1\d|2[0-5])$/.test(card.id)) {
                 return {
                     ...prev,
                     pendingEffectPlay: {
@@ -1142,6 +1443,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 // Create Divine unit
                 const newDivineUnit: Unit = {
                     ...card,
+                    cardId: card.cardId ?? card.id,
                     currentHealth: card.def || 1,
                     currentAttack: card.atk || 0,
                     canAttack: true,
@@ -1257,6 +1559,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             // 3. Normal Play (No Sacrifice)
             const newUnit: Unit = {
                 ...card,
+                cardId: card.cardId ?? card.id,
                 currentHealth: card.def || 1, // Effect cards have 0 def usually
                 currentAttack: card.atk || 0,
                 canAttack: !playFaceDown && isUnit, // Effects usually can't attack unless transformed
@@ -1307,19 +1610,34 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const sacrificeCost = getSacrificeCost(card);
         if (sacrificeCost === 0) {
             setTimeout(() => {
-                if (card.effects) {
-                    card.effects.forEach(effect => {
-                        if (effect.trigger === 'onPlay') {
-                            const sourceUnit = { ...card, currentHealth: card.def || 0, currentAttack: card.atk || 0, canAttack: false } as Unit;
-                            executeEffect(effect, sourceUnit);
-                        }
-                    });
-                }
+                const resolvedEffects = [
+                    ...(card.effects || []),
+                    ...((card.effects || []).some(effect => effect.trigger === 'onPlay')
+                        ? []
+                        : parseAbilityToEffects(card.description || '', card.cardId ?? card.id))
+                ];
+
+                resolvedEffects.forEach(effect => {
+                    if (effect.trigger === 'onPlay') {
+                        const sourceUnit = {
+                            ...card,
+                            cardId: card.cardId ?? card.id,
+                            currentHealth: card.def || 0,
+                            currentAttack: card.atk || 0,
+                            canAttack: false
+                        } as Unit;
+                        executeEffect(effect, sourceUnit);
+                    }
+                });
             }, 100);
         }
     };
 
     const confirmSacrifice = (sacrificeIds: string[]) => {
+        const pendingPlay = state.needsSacrifice
+            ? state.playerHand.find(c => c.id === state.needsSacrifice?.cardId)
+            : null;
+
         setState(prev => {
             if (!prev.needsSacrifice) return prev;
 
@@ -1366,6 +1684,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             // Play Card
             const newUnit: Unit = {
                 ...cardToPlay,
+                cardId: cardToPlay.cardId ?? cardToPlay.id,
                 currentHealth: cardToPlay.def || 1,
                 currentAttack: cardToPlay.atk || 0,
                 canAttack: true,
@@ -1385,6 +1704,30 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 cardsPlayedThisTurn: [...prev.cardsPlayedThisTurn, newUnit.id]
             };
         });
+
+        if (pendingPlay) {
+            setTimeout(() => {
+                const resolvedEffects = [
+                    ...(pendingPlay.effects || []),
+                    ...((pendingPlay.effects || []).some(effect => effect.trigger === 'onPlay')
+                        ? []
+                        : parseAbilityToEffects(pendingPlay.description || '', pendingPlay.cardId ?? pendingPlay.id))
+                ];
+
+                resolvedEffects.forEach(effect => {
+                    if (effect.trigger === 'onPlay') {
+                        const sourceUnit = {
+                            ...pendingPlay,
+                            cardId: pendingPlay.cardId ?? pendingPlay.id,
+                            currentHealth: pendingPlay.def || 0,
+                            currentAttack: pendingPlay.atk || 0,
+                            canAttack: false
+                        } as Unit;
+                        executeEffect(effect, sourceUnit);
+                    }
+                });
+            }, 100);
+        }
     };
 
     const attackUnit = (attackerId: string, targetId: string) => {
@@ -1437,91 +1780,184 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     return prev;
                 }
 
+                const attackerRemainingAttacks = Math.max(0, (attacker.remainingAttacks ?? attacker.maxAttacksPerTurn ?? 1) - 1);
+                const invisibleProtector =
+                    [...prev.opponentBoard, ...prev.divineSlots.opponent].find((u): u is Unit =>
+                        !!u && u.cardId === '163' && u.id !== targetId && (u.charges || 0) > 0
+                    ) || null;
+
+                if (target.cardId === '144' && target.isReady) {
+                    addToast(`${target.name} encolheu e desviou do ataque!`, 'info');
+
+                    const newPlayerBoard = prev.playerBoard.map(u => {
+                        if (!u) return null;
+                        if (u.id === attackerId) {
+                            return { ...u, remainingAttacks: attackerRemainingAttacks, canAttack: attackerRemainingAttacks > 0 };
+                        }
+                        return u;
+                    });
+
+                    const newPlayerDivineSlots = prev.divineSlots.player.map(u => {
+                        if (!u) return null;
+                        if (u.id === attackerId) {
+                            return { ...u, remainingAttacks: attackerRemainingAttacks, canAttack: attackerRemainingAttacks > 0 };
+                        }
+                        return u;
+                    });
+
+                    const updateDodgingUnit = (u: Unit | null) => {
+                        if (!u || u.id !== targetId) return u;
+                        return { ...u, isReady: false, hasUsedAbility: true };
+                    };
+
+                    return {
+                        ...prev,
+                        playerBoard: shrinkBoardIfNeeded(newPlayerBoard),
+                        divineSlots: {
+                            player: newPlayerDivineSlots,
+                            opponent: prev.divineSlots.opponent.map(updateDodgingUnit)
+                        },
+                        opponentBoard: shrinkBoardIfNeeded(prev.opponentBoard.map(updateDodgingUnit)),
+                        opponentLog: [normalizeBattleText(`${attacker.name} atacou ${target.name}, mas o golpe foi esquivado!`), ...prev.opponentLog].slice(0, 20)
+                    };
+                }
+
+                if (invisibleProtector) {
+                    const remainingCharges = Math.max(0, (invisibleProtector.charges || 0) - 1);
+
+                    const newPlayerBoard = prev.playerBoard.map(u => {
+                        if (!u) return null;
+                        if (u.id === attackerId) {
+                            return { ...u, remainingAttacks: attackerRemainingAttacks, canAttack: attackerRemainingAttacks > 0 };
+                        }
+                        return u;
+                    });
+
+                    const newPlayerDivineSlots = prev.divineSlots.player.map(u => {
+                        if (!u) return null;
+                        if (u.id === attackerId) {
+                            return { ...u, remainingAttacks: attackerRemainingAttacks, canAttack: attackerRemainingAttacks > 0 };
+                        }
+                        return u;
+                    });
+
+                    const updateProtector = (u: Unit | null) => {
+                        if (!u || u.id !== invisibleProtector.id) return u;
+                        return {
+                            ...u,
+                            charges: remainingCharges,
+                            currentHealth: u.currentHealth + 300,
+                            isReady: remainingCharges > 0
+                        };
+                    };
+
+                    addToast(`${invisibleProtector.name} desviou o ataque contra ${target.name}!`, 'info');
+
+                    return {
+                        ...prev,
+                        playerBoard: shrinkBoardIfNeeded(newPlayerBoard),
+                        opponentBoard: shrinkBoardIfNeeded(prev.opponentBoard.map(updateProtector)),
+                        divineSlots: {
+                            player: newPlayerDivineSlots,
+                            opponent: prev.divineSlots.opponent.map(updateProtector)
+                        },
+                        opponentLog: [normalizeBattleText(`${invisibleProtector.name} protegeu ${target.name} com uma barreira!`), ...prev.opponentLog].slice(0, 20)
+                    };
+                }
 
                 addToast(`${attacker!.name} atacou ${target!.name}!`, 'info');
 
                 // NEW COMBAT ENGINE LOGIC
-                let attackerDies = false;
-                let targetDies = false;
-                let defenderNewDef = effectiveTarget.currentHealth;
-                let damageToOpponent = 0;
-
                 const AT = effectiveAttacker.currentAttack;
                 const DF = effectiveTarget.currentHealth;
+                const attackerInstanceId = attacker.id;
+                const defenderInstanceId = target.id;
+                const attackerOnBoard = prev.playerBoard.some(u => u?.id === attackerInstanceId);
+                const defenderOnBoard = prev.opponentBoard.some(u => u?.id === defenderInstanceId);
+                const result = resolveCombat(
+                    { attack: AT, defense: effectiveAttacker.currentHealth },
+                    { attack: effectiveTarget.currentAttack, defense: DF },
+                    prev.opponentHealth
+                );
 
-                if (AT === DF) {
-                    // DRAW: Nobody dies, nobody takes damage.
-                    addToast('Empate! Ninguém sofreu dano.', 'info');
-                } else if (AT > DF) {
-                    // VICTORY: Target dies. Opponent takes Trample Damage (AT - DF).
-                    targetDies = true;
-                    damageToOpponent = AT - DF;
-                    addToast(`Vitória Esmagadora! ${target!.name} destruído e ${damageToOpponent} de dano no oponente!`, 'info');
-                } else if (AT < DF) {
-                    // LOSS: Attacker dies. Persistent Damage on Defender (Wear Down).
-                    attackerDies = true;
-                    defenderNewDef = Math.max(0, DF - AT);
+                if (result.attackerDies && result.defenderDies) {
+                    addToast('Empate! As duas unidades foram destruídas.', 'info');
+                } else if (result.defenderDies) {
+                    addToast(`Vitoria Esmagadora! ${target!.name} destruido e ${result.damageToPlayer} de dano no oponente!`, 'info');
+                } else if (result.attackerDies) {
                     addToast(`Defesa Impenetrável! ${attacker!.name} morreu, mas causou ${AT} de desgaste em ${target!.name}.`, 'warning');
                 }
 
                 // Update Board State
-                const newPlayerBoard = prev.playerBoard.map(u => {
+                const newPlayerBoard = attackerOnBoard ? prev.playerBoard.map(u => {
                     if (!u) return null;
-                    if (u.id === attackerId) {
-                        if (attackerDies) return null; // Destroyed
-                        return { ...u, canAttack: false }; // Survived but used attack
+                    if (u.id === attackerInstanceId) {
+                        if (result.attackerDies) return null; // Destroyed
+                        return {
+                            ...u,
+                            remainingAttacks: attackerRemainingAttacks,
+                            canAttack: attackerRemainingAttacks > 0
+                        };
                     }
                     return u;
-                });
+                }) : prev.playerBoard;
 
-                const newOpponentBoard = prev.opponentBoard.map(u => {
+                const newOpponentBoard = defenderOnBoard ? prev.opponentBoard.map(u => {
                     if (!u) return null;
-                    if (u.id === targetId) {
-                        if (targetDies) return null; // Destroyed
+                    if (u.id === defenderInstanceId) {
+                        if (result.defenderDies) return null; // Destroyed
                         // Persistent Damage + Reveal
                         return {
                             ...u,
-                            currentHealth: defenderNewDef,
+                            currentHealth: result.newDefenderDef !== DF ? result.newDefenderDef : u.currentHealth,
                             isFaceDown: false
                         };
                     }
                     return u;
-                });
+                }) : prev.opponentBoard;
 
                 // Update Divine Slots
-                const newPlayerDivineSlots = prev.divineSlots.player.map(u => {
+                const newPlayerDivineSlots = attackerOnBoard ? prev.divineSlots.player : prev.divineSlots.player.map(u => {
                     if (!u) return null;
-                    if (u.id === attackerId) {
-                        if (attackerDies) return null;
-                        return { ...u, canAttack: false };
+                    if (u.id === attackerInstanceId) {
+                        if (result.attackerDies) return null;
+                        return {
+                            ...u,
+                            remainingAttacks: attackerRemainingAttacks,
+                            canAttack: attackerRemainingAttacks > 0
+                        };
                     }
                     return u;
                 });
 
-                const newOpponentDivineSlots = prev.divineSlots.opponent.map(u => {
+                const newOpponentDivineSlots = defenderOnBoard ? prev.divineSlots.opponent : prev.divineSlots.opponent.map(u => {
                     if (!u) return null;
-                    if (u.id === targetId) {
-                        if (targetDies) return null;
+                    if (u.id === defenderInstanceId) {
+                        if (result.defenderDies) return null;
                         return {
                             ...u,
-                            currentHealth: defenderNewDef,
+                            currentHealth: result.newDefenderDef !== DF ? result.newDefenderDef : u.currentHealth,
                             isFaceDown: false
                         };
                     }
                     return u;
                 });
 
-                const newLogEntry = `${attacker!.name} atacou ${target!.name} (AT:${AT} vs DF:${DF})`;
+                const newLogEntry = normalizeBattleText(`${attacker!.name} atacou ${target!.name} (AT:${AT} vs DF:${DF})`);
+                const newPlayerGraveyard = result.attackerDies ? [...prev.playerGraveyard, { ...attacker }] : prev.playerGraveyard;
+                const newOpponentGraveyard = result.defenderDies ? [...prev.opponentGraveyard, { ...target }] : prev.opponentGraveyard;
 
                 return {
                     ...prev,
                     playerBoard: shrinkBoardIfNeeded(newPlayerBoard),
                     opponentBoard: shrinkBoardIfNeeded(newOpponentBoard),
+                    playerGraveyard: newPlayerGraveyard,
+                    opponentGraveyard: newOpponentGraveyard,
                     divineSlots: {
                         player: newPlayerDivineSlots,
                         opponent: newOpponentDivineSlots
                     },
-                    opponentHealth: Math.max(0, prev.opponentHealth - damageToOpponent),
+                    opponentHealth: result.damageToPlayer > 0 ? Math.max(0, prev.opponentHealth - result.damageToPlayer) : prev.opponentHealth,
                     opponentLog: [newLogEntry, ...prev.opponentLog].slice(0, 20)
                 };
             });
@@ -1564,11 +2000,12 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 addToast(`${attacker.name} atacou o Oponente!`, 'info');
 
                 const newOpponentHealth = prev.opponentHealth - attacker.currentAttack;
+                const remainingAttacks = Math.max(0, (attacker.remainingAttacks ?? attacker.maxAttacksPerTurn ?? 1) - 1);
 
-                const newLogEntry = `${attacker.name} atacou o oponente diretamente causando ${attacker.currentAttack} de dano!`;
+                const newLogEntry = normalizeBattleText(`${attacker.name} atacou o oponente diretamente causando ${attacker.currentAttack} de dano!`);
 
                 const newPlayerBoard = prev.playerBoard.map(u =>
-                    (u?.id === attackerId) ? { ...u, canAttack: false } : u
+                    (u?.id === attackerId) ? { ...u, remainingAttacks, canAttack: remainingAttacks > 0 } : u
                 );
 
                 return {
@@ -1702,9 +2139,10 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const addToast = (message: string, type: 'info' | 'warning' | 'error' = 'info') => {
         const id = Math.random().toString(36).substr(2, 9);
+        const normalizedMessage = normalizeBattleText(message);
         setState(prev => ({
             ...prev,
-            toasts: [...prev.toasts, { id, message, type }]
+            toasts: [...prev.toasts, { id, message: normalizedMessage, type }]
         }));
 
         setTimeout(() => removeToast(id), 3000);
@@ -1766,19 +2204,14 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             return;
         }
 
-        // Register usage (optimistic, or we can move this to after successful execution)
-        setState(prev => ({
-            ...prev,
-            unitsUsedAbilityThisTurn: [...prev.unitsUsedAbilityThisTurn, cardId]
-        }));
+        const canonicalCard = cards.find(c => c.id === unit.cardId);
+        let effects = unit.effects || canonicalCard?.effects || [];
 
-        // CSV ENGINE INTEGRATION: Parse active ability
-        let effects = unit.effects || [];
-
-        // If no explicit 'onActivate' effect found, try parsing the description
+        // If no explicit 'onActivate' effect is present, consult the canonical registry.
         const explicitActive = effects.find(e => e.trigger === 'onActivate');
-        if (!explicitActive && unit.description) {
-            const parsed = parseAbilityToEffects(unit.description);
+        const abilityDescription = canonicalCard?.description || unit.description;
+        if (!explicitActive && abilityDescription) {
+            const parsed = parseAbilityToEffects(abilityDescription, unit.cardId);
             effects = [...effects, ...parsed];
         }
 
@@ -1788,8 +2221,14 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             return;
         }
 
+        setState(prev => ({
+            ...prev,
+            unitsUsedAbilityThisTurn: [...prev.unitsUsedAbilityThisTurn, cardId]
+        }));
+
         // Check if target selection is needed FIRST
-        const needsTarget = (effect.target === 'enemy' || effect.target === 'opponent' || effect.target === 'any')
+        const needsTarget = effect.requiresTarget === true
+            || (effect.target === 'enemy' || effect.target === 'opponent' || effect.target === 'any')
             || ['destroy', 'banish', 'returnToHand'].includes(effect.type);
 
         if (needsTarget) {
@@ -1830,6 +2269,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (!card) return;
         const unit: Unit = {
             ...card,
+            cardId: card.cardId ?? card.id,
             currentHealth: card.def || 1000,
             currentAttack: card.atk || 1000,
             canAttack: true

@@ -77,8 +77,7 @@ const EditableCard = React.memo(({ card, onUpdate, availableUniverses }: { card:
                     <input
                         type="text"
                         value={localCard.id}
-                        onChange={(e) => handleChange('id', e.target.value)}
-                        onBlur={() => handleBlur('id')}
+                        readOnly
                         className="w-8 bg-black/60 text-[9px] font-mono text-white/80 border border-white/10 rounded px-0.5 outline-none hover:bg-black/80 cursor-text backdrop-blur-sm"
                         placeholder="ID"
                     />

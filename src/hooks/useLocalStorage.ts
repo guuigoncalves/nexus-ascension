@@ -1,22 +1,41 @@
 import { useState } from 'react';
 
+const STORAGE_PREFIX = 'nexus_v2_';
+
+export const getStorageKey = (key: string) => `${STORAGE_PREFIX}${key}`;
+
 export function useLocalStorage<T>(key: string, initialValue: T) {
+    const storageKey = getStorageKey(key);
     const [storedValue, setStoredValue] = useState<T>(() => {
         try {
-            const item = window.localStorage.getItem(key);
-            if (item) {
+            const item = window.localStorage.getItem(storageKey);
+            if (item !== null) {
                 const parsed = JSON.parse(item);
-                // Shallow merge to ensure new fields in initialValue (migration) are present
-                // Note: unique arrays or deep objects might need specific handling, 
-                // but for 'currency' object this shallow merge of the root profile is a good start if currency is a top key?
-                // Wait, profile has nested 'currency'. A shallow merge { ...initial, ...parsed } puts parsed.currency (undefined) over initial.currency IF parsed has the key as undefined? No, JSON doesn't store undefined.
-                // But if parsed doesn't have 'currency', { ...initial, ...parsed } will keep initial.currency.
-                // This works for missing keys!
-                return { ...initialValue, ...parsed };
+
+                if (parsed === null || typeof parsed === 'undefined') {
+                    return initialValue;
+                }
+
+                if (Array.isArray(initialValue)) {
+                    return (Array.isArray(parsed) ? parsed : initialValue) as T;
+                }
+
+                if (
+                    typeof initialValue === 'object' &&
+                    initialValue !== null &&
+                    typeof parsed === 'object' &&
+                    parsed !== null &&
+                    !Array.isArray(parsed)
+                ) {
+                    // Shallow merge keeps new root fields from the current schema.
+                    return { ...initialValue, ...parsed };
+                }
+
+                return parsed as T;
             }
             return initialValue;
         } catch (error) {
-            console.error(`Error loading ${key} from localStorage:`, error);
+            console.error(`Error loading ${storageKey} from localStorage:`, error);
             return initialValue;
         }
     });
@@ -25,9 +44,13 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         try {
             const valueToStore = value instanceof Function ? value(storedValue) : value;
             setStoredValue(valueToStore);
-            window.localStorage.setItem(key, JSON.stringify(valueToStore));
+            if (typeof valueToStore === 'undefined') {
+                window.localStorage.removeItem(storageKey);
+                return;
+            }
+            window.localStorage.setItem(storageKey, JSON.stringify(valueToStore));
         } catch (error) {
-            console.error(`Error saving ${key} to localStorage:`, error);
+            console.error(`Error saving ${storageKey} to localStorage:`, error);
         }
     };
 

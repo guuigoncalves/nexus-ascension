@@ -44,8 +44,8 @@ export const CardVisual: React.FC<CardVisualProps> = ({
         );
     }
 
-    const displayAtk = effectiveStats ? effectiveStats.currentAttack : (card.atk || 0);
-    const displayDef = effectiveStats ? effectiveStats.currentHealth : (card.def || 0);
+    const displayAtk = String(effectiveStats ? effectiveStats.currentAttack : (card.atk || 0));
+    const displayDef = String(effectiveStats ? effectiveStats.currentHealth : (card.def || 0));
 
     const isDamaged = effectiveStats && card.def && effectiveStats.currentHealth < card.def;
     const isBuffedAtk = effectiveStats && card.atk && effectiveStats.currentAttack > card.atk;
@@ -98,7 +98,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                         <div className="flex-1 flex flex-col items-center gap-[1px]">
                             <span className="text-[5px] font-black text-white/50 uppercase leading-none tracking-wider">AT</span>
                             <div className="w-full bg-black/80 backdrop-blur-sm rounded-sm border border-white/10 flex items-center justify-center h-[16px] shadow-lg">
-                                <span className={`${isBuffedAtk ? 'text-yellow-300' : 'text-white'} font-bold text-[9px] leading-none`}>
+                                <span className={`${isBuffedAtk ? 'text-yellow-300' : 'text-white'} font-mono tabular-nums font-bold text-[8px] leading-none`}>
                                     {displayAtk}
                                 </span>
                             </div>
@@ -106,7 +106,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                         <div className="flex-1 flex flex-col items-center gap-[1px]">
                             <span className="text-[5px] font-black text-white/50 uppercase leading-none tracking-wider">DF</span>
                             <div className="w-full bg-black/80 backdrop-blur-sm rounded-sm border border-white/10 flex items-center justify-center h-[16px] shadow-lg">
-                                <span className={`${isDamaged ? 'text-red-400' : (isBuffedDef ? 'text-yellow-300' : 'text-white')} font-bold text-[9px] leading-none`}>
+                                <span className={`${isDamaged ? 'text-red-400' : (isBuffedDef ? 'text-yellow-300' : 'text-white')} font-mono tabular-nums font-bold text-[8px] leading-none`}>
                                     {displayDef}
                                 </span>
                             </div>

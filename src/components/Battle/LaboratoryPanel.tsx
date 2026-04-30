@@ -3,8 +3,10 @@ import { useCards } from '../../contexts/CardContext';
 import { useBattle } from '../../contexts/BattleContext';
 import { Search, PlusCircle, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getStorageKey } from '../../hooks/useLocalStorage';
 
 export const LaboratoryPanel: React.FC = () => {
+    const labReportKey = getStorageKey('lab_report');
     const { cards } = useCards();
     const {
         isLabMode,
@@ -19,7 +21,7 @@ export const LaboratoryPanel: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSlot, setSelectedSlot] = useState<{ index: number, isPlayer: boolean } | null>(null);
-    const [reportText, setReportText] = useState(() => localStorage.getItem('lab_report') || '');
+    const [reportText, setReportText] = useState(() => localStorage.getItem(labReportKey) || '');
 
     // Filter cards
     const filteredCards = useMemo(() => {
@@ -32,7 +34,7 @@ export const LaboratoryPanel: React.FC = () => {
     const handleReportChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
         setReportText(text);
-        localStorage.setItem('lab_report', text);
+        localStorage.setItem(labReportKey, text);
     };
 
     const handlePlaceCard = (cardId: string) => {

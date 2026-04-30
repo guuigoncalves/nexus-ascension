@@ -22,9 +22,9 @@ export interface DeckValidationResult {
     requiredSize: number;
 }
 
-export const validateDeck = (deckIndices: number[], trophies: number): DeckValidationResult => {
+export const validateDeck = (deckCardIds: string[], trophies: number): DeckValidationResult => {
     const limit = getDeckSizeLimit(trophies);
-    const currentSize = deckIndices.length;
+    const currentSize = deckCardIds.length;
 
     if (currentSize !== limit) {
         return {

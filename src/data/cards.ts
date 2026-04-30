@@ -485,7 +485,7 @@ export const initialCards: Card[] = [
         "atk": 1600,
         "def": 1600,
         "rarity": "Titã",
-        "description": "Por 2 Turnos, dobra a Defesa e, a cada Turno, o Laço da Verdade revela 1 carta virada para baixo.",
+        "description": "Por 2T, dobra DF. Cada T, Laco da Verdade revela carta.",
         "image": "/cards/87.png"
     },
     {
@@ -635,7 +635,7 @@ export const initialCards: Card[] = [
         "atk": 1250,
         "def": 1250,
         "rarity": "Veterano",
-        "description": "Armadura Força Ômega: aumenta 1000 em seus Ataque e Defesa por 3 Turnos. Todo dano causado gera um Ataque extra automático no 4T.",
+        "description": "Armadura Forca Omega: Aumenta 1000 em seus Ataque e Defesa por 3 Turnos. A Defesa dos oponentes derrotados neste periodo e somada. Apos o efeito, lance o ataque especial para causar o dano acumulado em um oponente. (Consome a soma e o efeito extra).",
         "image": "/cards/126.png"
     },
     {
@@ -705,7 +705,7 @@ export const initialCards: Card[] = [
         "atk": 1150,
         "def": 1200,
         "rarity": "Gladiador",
-        "description": "\"Se transforma, podendo atacar 2 vezes por Turno",
+        "description": "Se transforma: +600 ATK e 2 ataques por turno por 3 turnos.",
         "image": "/cards/133.png"
     },
     {
@@ -775,7 +775,7 @@ export const initialCards: Card[] = [
         "atk": 1100,
         "def": 1100,
         "rarity": "Gladiador",
-        "description": "Libera sua força bruta, triplicando o Ataque por 2 Turnos. Porém, imediatamente a exaustão o enfraquece, e reduz imediatamente sua Defesa em 50%.",
+        "description": "Triplica ATK por 2T. Apos, exaustao reduz DF em 50%.",
         "image": "/cards/146.png"
     },
     {
@@ -835,7 +835,7 @@ export const initialCards: Card[] = [
         "atk": 1000,
         "def": 1000,
         "rarity": "Gladiador",
-        "description": "A cada oponente derrotado, aumenta seu Ataque em 50% e realiza um segundo ataque.",
+        "description": "Limite: 2 usos. Ative antes de atacar. Se derrotar um oponente com a HB ativa, ganha +50% de Ataque permanente e ganha 1 ataque extra neste turno.",
         "image": "/cards/152.png"
     },
     {
@@ -995,7 +995,7 @@ export const initialCards: Card[] = [
         "atk": 900,
         "def": 900,
         "rarity": "Paladino",
-        "description": "Lança um Kienzan em um oponente à sua escolha. Caso o oponente não seja salvo é eliminado. Pode lançar outro após 4T.",
+        "description": "Kienzan: Escolha um oponente para receber 2500 de dano. Cooldown: 4 Turnos.",
         "image": "/cards/172.png"
     },
     {

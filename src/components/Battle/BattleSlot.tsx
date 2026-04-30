@@ -24,7 +24,7 @@ export const BattleSlot: React.FC<BattleSlotProps> = ({
     onSelect,
     onAttack
 }) => {
-    const { playerBoard, opponentBoard, getUnitWithAuras } = useBattle();
+    const { playerBoard, opponentBoard, getUnitWithAuras, targetSelectionMode } = useBattle();
     const effectiveUnit = unit ? getUnitWithAuras(unit, isPlayer ? playerBoard : opponentBoard) : null;
 
     const auraColor = unit ? getAuraColor(unit.rarity) : 'transparent';
@@ -45,6 +45,8 @@ export const BattleSlot: React.FC<BattleSlotProps> = ({
         <div
             onClick={() => {
                 if (isPlayer) {
+                    onSelect();
+                } else if (!isPlayer && targetSelectionMode?.active) {
                     onSelect();
                 } else if (!isPlayer && canBeTargeted) {
                     onAttack();
