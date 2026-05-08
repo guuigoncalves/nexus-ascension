@@ -46,6 +46,8 @@ interface TestUnit {
     customState?: any;
     isStunned?: boolean; // Spider-Man Stun
     stunTurns?: number; // Spider-Man Stun Duration
+    hasAttacked?: boolean;
+    isIntangible?: boolean;
 }
 
 
@@ -74,6 +76,7 @@ export const TestLab: React.FC = () => {
     const [enemyHand, setEnemyHand] = useState<any[]>(Array(8).fill(null)); // 🆕 Mão do oponente
     const [playerHP, setPlayerHP] = useState(8000);
     const [enemyHP, setEnemyHP] = useState(8000);
+    const [turnNumber, setTurnNumber] = useState(0);
     const [playerGraveyard, setPlayerGraveyard] = useState<any[]>([]); // 🪦 Cemitério P1
     const [enemyGraveyard, setEnemyGraveyard] = useState<any[]>([]); // 🪦 Cemitério P2
     const [eventLog, setEventLog] = useState<string[]>(['🧪 Oficina iniciada']);
@@ -104,7 +107,7 @@ export const TestLab: React.FC = () => {
         onSelect: (card: any) => void;
     } | null>(null);
     const [interactionMode, setInteractionModeState] = useState<{ type: 'IDLE' } | { type: 'SELECTING_ABILITY_TARGET'; sourceId: string; abilityCallback: (id: string) => void }>({ type: 'IDLE' });
-    const legacySetupIds = useMemo(() => ['28', '29', '35', '86', '87', '146', '148', '151'], []);
+    const legacySetupIds = useMemo(() => ['28', '29', '35', '86', '87', '151'], []);
 
 
 
@@ -213,6 +216,11 @@ export const TestLab: React.FC = () => {
             testCards.forEach((card, i) => {
                 newPlayerBoard[i + 1] = createUnit(card);
             });
+            newPlayerBoard.fill(null);
+            ['145', '164', '165', '195', '127', '53', '150', '92', '47'].forEach((cardId, index) => {
+                const card = cards.find(c => c.id === cardId) || initialCards.find(c => c.id === cardId);
+                if (card) newPlayerBoard[index] = createUnit(card);
+            });
 
             // Setup Enemy Board: Asa Noturna (189) + 4 cartas "fracas" (DEF < 1000)
             const asaNoturna = cards.find(c => c.id === '189');
@@ -239,6 +247,7 @@ export const TestLab: React.FC = () => {
             randomCards.forEach((card, i) => {
                 newPlayerHand[i] = card;
             });
+            newPlayerHand.fill(null);
 
             // Setup Enemy Hand (4 cartas)
             const newEnemyHand = Array(8).fill(null);
@@ -909,7 +918,7 @@ export const TestLab: React.FC = () => {
         const newEBoard = Array(14).fill(null);
         const newPlayerHand = Array(8).fill(null);
 
-        const setupIds = ['126', '127', '152', '157', '172'];
+        const setupIds = ['145', '164', '165', '195', '127', '53', '150', '92', '47'];
         setupIds.forEach((id, index) => {
             const card = cards.find(c => c.id === id) || initialCards.find(c => c.id === id);
             if (!card) return;
@@ -1013,7 +1022,7 @@ export const TestLab: React.FC = () => {
                     };
                 }
                 if (updated.abilityCooldown && updated.abilityCooldown > 0) {
-                    updated.abilityCooldown -= 1;
+                    updated = { ...updated, abilityCooldown: updated.abilityCooldown - 1 };
                 }
                 if (updated.card.id === '157' && updated.effectTurns && updated.effectTurns > 0) {
                     updated.remainingAttacks = 2;
@@ -1026,7 +1035,7 @@ export const TestLab: React.FC = () => {
 
                 // Decrementar contador de turnos de efeitos
                 if (updated.effectTurns !== undefined && updated.effectTurns > 0) {
-                    updated.effectTurns -= 1;
+                    updated = { ...updated, effectTurns: updated.effectTurns - 1 };
 
                     // Se o efeito expirou
                     if (updated.effectTurns <= 0) {
@@ -1050,14 +1059,22 @@ export const TestLab: React.FC = () => {
                         }
 
                         // Sincronizar card stats
-                        updated.card.atk = updated.currentAttack;
-                        updated.card.def = updated.currentHealth;
+                        updated.card = { ...updated.card, atk: updated.currentAttack, def: updated.currentHealth };
+                        if (updated.isSilenced) {
+                            updated = { ...updated, isSilenced: false };
+                        }
                         if (unit.card.id === '126') {
                             updated.customState = {
                                 ...(updated.customState || {}),
                                 hasOmegaAttack: true
                             };
                             updated.statusText = 'Omega Ready';
+                        }
+                        if (unit.card.id === '127') {
+                            updated.customState = {
+                                ...(updated.customState || {}),
+                                ancestraisAtivos: false
+                            };
                         }
                         if (unit.card.id === '157' && updated.customState?.oobActive) {
                             updated.currentHealth = Math.floor(updated.currentHealth * 0.5);
@@ -1073,7 +1090,11 @@ export const TestLab: React.FC = () => {
                         }
 
                         // Reverter Status Bool
-                        updated.isStunned = false;
+                        updated = {
+                            ...updated,
+                            isStunned: false,
+                            isIntangible: false
+                        };
 
                         // 🔻 DEBUFFS PERMANENTES (Pós-Efeito) - V4.7
                         if (unit.card.id === '137') { // Lee
@@ -1114,6 +1135,7 @@ export const TestLab: React.FC = () => {
 
                 // ↩️ Reset de ataques por turno (Goten, Rock Lee, etc.)
                 (updated as any).attacksThisTurn = 0;
+                updated = { ...updated, hasAttacked: false };
                 if (updated.maxAttacks !== undefined) {
                     updated.maxAttacks = undefined; // Limpa multi-ataque ao virar turno
                 }
@@ -1122,27 +1144,94 @@ export const TestLab: React.FC = () => {
             });
         };
 
+        const nextTurnNumber = turnNumber + 1;
         let newPlayerBoard = processBoard(playerBoard, 'player');
         let newEnemyBoard = processBoard(enemyBoard, 'enemy');
 
+        if (nextTurnNumber % 3 === 0) {
+            const revealFaceDown = (board: TestSlot[]): { board: TestSlot[]; revealed?: TestUnit } => {
+                const candidates = board
+                    .map((unit, index) => ({ unit, index }))
+                    .filter(item => item.unit?.isFaceDown);
+                if (candidates.length === 0) return { board };
+                const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+                const revealed = chosen.unit!;
+                return {
+                    board: board.map((unit, index) => index === chosen.index && unit ? { ...unit, isFaceDown: false } : unit),
+                    revealed
+                };
+            };
+
+            if (newPlayerBoard.some(unit => unit?.card.id === '138')) {
+                const result = revealFaceDown(newEnemyBoard);
+                newEnemyBoard = result.board;
+                if (result.revealed) log(`[NEJI] Carta do oponente revelada: ${result.revealed.card.name}.`);
+            }
+            if (newEnemyBoard.some(unit => unit?.card.id === '138')) {
+                const result = revealFaceDown(newPlayerBoard);
+                newPlayerBoard = result.board;
+                if (result.revealed) log(`[NEJI] Carta do oponente revelada: ${result.revealed.card.name}.`);
+            }
+        }
+
         setPlayerBoard(newPlayerBoard);
         setEnemyBoard(newEnemyBoard);
+        setTurnNumber(nextTurnNumber);
         saveHistory(newPlayerBoard, newEnemyBoard, playerHand);
 
         log('⏳ Turno avançado. Efeitos temporários atualizados.');
-    }, [playerBoard, enemyBoard, playerHand, log, saveHistory]);
+    }, [playerBoard, enemyBoard, playerHand, log, saveHistory, turnNumber]);
 
 
     const executeAttack = useCallback((targetBoard: 'player' | 'enemy', targetIndex: number) => {
         if (!attackMode) return;
         const attackerBoard = attackMode.attackerBoard === 'player' ? playerBoard : enemyBoard;
-        const attacker = attackerBoard.find(u => u?.id === attackMode.attackerId);
+        let attacker = attackerBoard.find(u => u?.id === attackMode.attackerId);
         const defenderBoard = targetBoard === 'player' ? playerBoard : enemyBoard;
         const defender = defenderBoard[targetIndex];
 
         if (!attacker || !defender) { setAttackMode(null); return; }
+        if (attacker.hasAttacked) {
+            log('[SISTEMA] Esta carta ja atacou neste turno.');
+            setAttackMode(null);
+            setSelectedSlot(null);
+            return;
+        }
         if (attacker.isStunned) {
             log(`[STUN] ${attacker.card.name} nao pode atacar.`);
+            setAttackMode(null);
+            setSelectedSlot(null);
+            return;
+        }
+        if (defender.isIntangible) {
+            log('[VISAO] Ataque anulado por intangibilidade.');
+            setAttackMode(null);
+            setSelectedSlot(null);
+            return;
+        }
+        if (attacker.card.id === '92' && attacker.isIntangible) {
+            const baseDefender = initialCards.find(c => c.id === defender.card.id);
+            const baseDef = baseDefender?.def ?? defender.currentHealth;
+            const nextHealth = baseDef - attacker.currentAttack;
+            const newDefBoard = defenderBoard === playerBoard ? [...playerBoard] : [...enemyBoard];
+            newDefBoard[targetIndex] = nextHealth <= 0 ? null : {
+                ...defender,
+                currentHealth: nextHealth,
+                card: { ...defender.card, def: nextHealth }
+            };
+            if (targetBoard === 'player') setPlayerBoard(newDefBoard); else setEnemyBoard(newDefBoard);
+            const newAttBoard = attackerBoard === playerBoard ? [...playerBoard] : [...enemyBoard];
+            const aIdx = newAttBoard.findIndex(u => u?.id === attacker!.id);
+            if (aIdx !== -1 && newAttBoard[aIdx]) {
+                newAttBoard[aIdx] = {
+                    ...newAttBoard[aIdx]!,
+                    hasAttacked: true,
+                    statusText: newAttBoard[aIdx]!.statusText,
+                    statusEffect: newAttBoard[aIdx]!.statusEffect
+                };
+                if (attackMode.attackerBoard === 'player') setPlayerBoard(newAttBoard); else setEnemyBoard(newAttBoard);
+            }
+            log('[VISAO] Ataque intangivel aplicado contra DEF base.');
             setAttackMode(null);
             setSelectedSlot(null);
             return;
@@ -1155,6 +1244,54 @@ export const TestLab: React.FC = () => {
         }
         if (attacker.card.id === '152' && (attacker.customState?.attacksThisTurn || 0) >= 2) {
             log('[GAMORA] Limite: 2 ataques por turno.');
+            setAttackMode(null);
+            setSelectedSlot(null);
+            return;
+        }
+        if (defender.card.id === '138' && defender.isReady) {
+            const baseAttacker = initialCards.find(c => c.id === attacker.card.id);
+            const originalDamage = baseAttacker?.atk ?? attacker.currentAttack;
+            const damage = Math.floor(originalDamage * 0.2);
+            const reflectDamage = Math.floor(originalDamage * 0.4);
+            const newDefBoard = defenderBoard === playerBoard ? [...playerBoard] : [...enemyBoard];
+            const dIdx = newDefBoard.findIndex(u => u?.id === defender.id);
+            let survived = false;
+
+            if (dIdx !== -1) {
+                const neji = { ...newDefBoard[dIdx]! };
+                const nextHealth = neji.currentHealth - damage;
+                if (nextHealth > 0) {
+                    survived = true;
+                    newDefBoard[dIdx] = {
+                        ...neji,
+                        currentHealth: nextHealth,
+                        isReady: false,
+                        card: { ...neji.card, def: nextHealth },
+                        statusText: undefined,
+                        statusEffect: undefined
+                    };
+                } else {
+                    newDefBoard[dIdx] = null;
+                }
+                if (targetBoard === 'player') setPlayerBoard(newDefBoard); else setEnemyBoard(newDefBoard);
+            }
+
+            if (survived) {
+                const newAttBoard = attackerBoard === playerBoard ? [...playerBoard] : [...enemyBoard];
+                const aIdx = newAttBoard.findIndex(u => u?.id === attacker.id);
+                const att = aIdx !== -1 ? newAttBoard[aIdx] : null;
+                if (att) {
+                    const nextHealth = att.currentHealth - reflectDamage;
+                    newAttBoard[aIdx] = nextHealth <= 0 ? null : {
+                        ...att,
+                        currentHealth: nextHealth,
+                        card: { ...att.card, def: nextHealth }
+                    };
+                    if (attackMode.attackerBoard === 'player') setPlayerBoard(newAttBoard); else setEnemyBoard(newAttBoard);
+                }
+            }
+
+            log(`[NEJI] Dano recebido ${damage}; contra-ataque ${survived ? reflectDamage : 0}.`);
             setAttackMode(null);
             setSelectedSlot(null);
             return;
@@ -1259,6 +1396,51 @@ export const TestLab: React.FC = () => {
         }
 
         // 🌀 WONG (ID 164) - PORTAL (Reflexão)
+        const activeWong = defenderBoard.find(u => u?.card.id === '164' && u.charges && u.charges > 0);
+        if (activeWong) {
+            const originalDamage = attacker.currentAttack;
+            const newDefBoard = [...defenderBoard];
+            const wIdx = newDefBoard.findIndex(u => u?.id === activeWong.id);
+            if (wIdx !== -1 && newDefBoard[wIdx]) {
+                const wong = newDefBoard[wIdx]!;
+                const nextCharges = (wong.charges || 0) - 1;
+                newDefBoard[wIdx] = {
+                    ...wong,
+                    charges: nextCharges,
+                    statusText: nextCharges > 0 ? `WONG (${nextCharges})` : undefined,
+                    statusEffect: nextCharges > 0 ? 'guard' : undefined,
+                    isReady: nextCharges > 0
+                };
+                if (targetBoard === 'player') setPlayerBoard(newDefBoard); else setEnemyBoard(newDefBoard);
+            }
+
+            const opponentBoardType = targetBoard === 'player' ? 'enemy' : 'player';
+            setInteractionMode({
+                type: 'SELECTING_ABILITY_TARGET',
+                sourceId: activeWong.id,
+                abilityCallback: (targetId) => {
+                    const boardState = opponentBoardType === 'player' ? playerBoard : enemyBoard;
+                    const setBoardState = opponentBoardType === 'player' ? setPlayerBoard : setEnemyBoard;
+                    const tIdx = boardState.findIndex(u => u?.id === targetId);
+                    const target = tIdx !== -1 ? boardState[tIdx] : null;
+                    if (!target) return;
+                    const nextHealth = target.currentHealth - originalDamage;
+                    const updatedBoard = [...boardState];
+                    updatedBoard[tIdx] = nextHealth <= 0 ? null : {
+                        ...target,
+                        currentHealth: nextHealth,
+                        card: { ...target.card, def: nextHealth }
+                    };
+                    setBoardState(updatedBoard);
+                    log(`[WONG] Dano redirecionado: ${originalDamage}.`);
+                }
+            });
+            log('[WONG] Selecione um oponente para receber o dano redirecionado.');
+            setAttackMode(null);
+            setSelectedSlot(null);
+            return;
+        }
+
         const wongProtector = defenderBoard.find(u => u?.card.id === '164' && u.charges && u.charges > 0);
         if (wongProtector) { // Wong protege o board todo
             log(`🌀 Wong abriu um portal e redirecionou o ataque de ${attacker.card.name}!`);
@@ -1360,6 +1542,34 @@ export const TestLab: React.FC = () => {
         // Se o defensor está no mesmo board que tem Mysterio com contadores, perguntar se quer bloquear
         const defenderBoardType = targetBoard;
         const defenderBoardArray = defenderBoardType === 'player' ? playerBoard : enemyBoard;
+        const activeMysterio = defenderBoardArray.find(u => u?.card.id === '195' && u.charges && u.charges > 0);
+        if (activeMysterio) {
+            const newDefenderBoard = [...defenderBoardArray];
+            const mysterioIndex = newDefenderBoard.findIndex(u => u?.id === activeMysterio.id);
+            if (mysterioIndex !== -1 && newDefenderBoard[mysterioIndex]) {
+                const mysterio = newDefenderBoard[mysterioIndex]!;
+                const nextCharges = (mysterio.charges || 0) - 1;
+                newDefenderBoard[mysterioIndex] = {
+                    ...mysterio,
+                    charges: nextCharges,
+                    statusText: nextCharges > 0 ? `MYSTERIO (${nextCharges})` : undefined,
+                    statusEffect: nextCharges > 0 ? 'illusion' : undefined,
+                    isReady: nextCharges > 0
+                };
+                if (defenderBoardType === 'player') {
+                    setPlayerBoard(newDefenderBoard);
+                    saveHistory(newDefenderBoard, enemyBoard, playerHand);
+                } else {
+                    setEnemyBoard(newDefenderBoard);
+                    saveHistory(playerBoard, newDefenderBoard, playerHand);
+                }
+                log(`[MYSTERIO] Ataque anulado. Cargas restantes: ${nextCharges}.`);
+                setAttackMode(null);
+                setSelectedSlot(null);
+                return;
+            }
+        }
+
         const mysterioWithCounters = defenderBoardArray.find(u => u?.card.id === '195' && u.illusionCounters && u.illusionCounters > 0);
 
         if (mysterioWithCounters) {
@@ -1684,7 +1894,7 @@ export const TestLab: React.FC = () => {
         }
 
         // 🐾 PANTERA NEGRA (ID 127) - Bonus por Morte
-        if (isDefenderKilled && attacker.card.id === '127' && attacker.effectTurns && attacker.effectTurns > 0) {
+        if (isDefenderKilled && attacker.card.id === '127' && attacker.customState?.ancestraisAtivos) {
             const attackerBoardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
             const attIdx = attackerBoardArr.findIndex(u => u?.id === attacker.id);
             if (attIdx !== -1 && attackerBoardArr[attIdx]) {
@@ -1838,6 +2048,10 @@ export const TestLab: React.FC = () => {
             const targetUnit = targetBoardArray[targetIndex];
 
             if (targetUnit) {
+                if (targetUnit.isIntangible) {
+                    log('[VISAO] Efeito anulado por intangibilidade.');
+                    return;
+                }
                 const newBoard = [...targetBoardArray];
                 const damagedUnit = { ...targetUnit };
                 const dmg = effectMode.damage || sourceUnit.currentAttack;
@@ -1860,6 +2074,15 @@ export const TestLab: React.FC = () => {
                     setEffectMode({ ...effectMode, targetsLeft: remaining });
                     log(`⚔️ Selecione mais ${remaining} alvo(s)...`);
                 } else {
+                    if (sourceUnit.card.id === '145') {
+                        const updatedSourceBoard = sourceBoard.map(unit => unit?.id === sourceUnit.id ? {
+                            ...unit,
+                            hasAttacked: true,
+                            statusText: 'EXHAUSTED'
+                        } : unit);
+                        if (effectMode.sourceBoard === 'player') setPlayerBoard(updatedSourceBoard); else setEnemyBoard(updatedSourceBoard);
+                        log('[VESPA] HB consumiu o ataque do turno.');
+                    }
                     setEffectMode(null);
                     log(`⚔️ Combo de Zoro finalizado!`);
                 }
@@ -1868,6 +2091,34 @@ export const TestLab: React.FC = () => {
         }
 
         // 🌀 BORUTO BUFF ALLY CHECK
+        if (effectMode?.type === 'estelar_destroy') {
+            if (effectMode.sourceBoard === targetBoard) {
+                log('[ESTELAR] Selecione um oponente.');
+                return;
+            }
+            const targetBoardArray = targetBoard === 'player' ? playerBoard : enemyBoard;
+            const setTargetBoard = targetBoard === 'player' ? setPlayerBoard : setEnemyBoard;
+            const setTargetGraveyard = targetBoard === 'player' ? setPlayerGraveyard : setEnemyGraveyard;
+            const targetUnit = targetBoardArray[targetIndex];
+            if (!targetUnit) return;
+            if (targetUnit.isIntangible) {
+                log('[VISAO] Efeito anulado por intangibilidade.');
+                return;
+            }
+            const newBoard = targetBoardArray.map((unit, index) => index === targetIndex ? null : unit);
+            setTargetBoard(newBoard);
+            setTargetGraveyard(prev => [...prev, targetUnit.card]);
+            const remaining = (effectMode.targetsLeft || 1) - 1;
+            if (remaining > 0) {
+                setEffectMode({ ...effectMode, targetsLeft: remaining });
+                log(`[ESTELAR] Selecione mais ${remaining} oponente.`);
+            } else {
+                setEffectMode(null);
+                log('[ESTELAR] Alvos eliminados.');
+            }
+            return;
+        }
+
         if (effectMode?.type === 'buff_ally_atk') {
             // Evitar Buff em Inimigos
             if (effectMode.sourceBoard !== targetBoard) {
@@ -2166,8 +2417,11 @@ export const TestLab: React.FC = () => {
                 const mysterio = { ...newBoard[sourceIndex]! };
 
                 // Adicionar 2 contadores de Ilusão
-                mysterio.illusionCounters = 2;
+                mysterio.charges = 2;
+                mysterio.illusionCounters = undefined;
+                mysterio.isReady = true;
                 mysterio.statusText = '✨ ILUSÃO (2)';
+                mysterio.statusText = 'MYSTERIO (2)';
                 mysterio.statusEffect = 'illusion';
 
                 newBoard[sourceIndex] = mysterio;
@@ -2552,13 +2806,22 @@ export const TestLab: React.FC = () => {
             const newBoard = [...myBoard];
             const idx = newBoard.findIndex(u => u?.id === source.id);
             if (idx !== -1) {
-                const u = newBoard[idx]!;
-                if (u.originalAttack === undefined) u.originalAttack = u.currentAttack;
-                u.currentAttack += 500;
-                u.card = { ...u.card, atk: u.currentAttack };
-                u.effectTurns = 2;
-                u.statusText = 'ANCESTRAIS (2T)';
-                u.statusEffect = 'buff';
+                const unit = newBoard[idx]!;
+                const originalAttack = unit.originalAttack ?? unit.currentAttack;
+                const currentAttack = originalAttack + 500;
+                newBoard[idx] = {
+                    ...unit,
+                    originalAttack,
+                    currentAttack,
+                    card: { ...unit.card, atk: currentAttack },
+                    effectTurns: 2,
+                    statusText: 'ANCESTRAIS (2T)',
+                    statusEffect: 'buff',
+                    customState: {
+                        ...(unit.customState || {}),
+                        ancestraisAtivos: true
+                    }
+                };
                 setMyBoard(newBoard);
                 log(`[PANTERA] Pantera Negra conectou-se aos ancestrais! +500 ATK.`);
             }
@@ -2566,14 +2829,96 @@ export const TestLab: React.FC = () => {
             return;
         }
 
+        if (source.card.id === '53') {
+            const shuffle = <T,>(items: T[]): T[] => [...items].sort(() => Math.random() - 0.5);
+            const playerCount = playerBoard.filter(Boolean).length;
+            const enemyCount = enemyBoard.filter(Boolean).length;
+            const movedPlayerCards = playerBoard.filter((unit): unit is TestUnit => !!unit).map(unit => unit.card);
+            const movedEnemyCards = enemyBoard.filter((unit): unit is TestUnit => !!unit).map(unit => unit.card);
+            const nextPlayerGraveyard = [...playerGraveyard, ...movedPlayerCards];
+            const nextEnemyGraveyard = [...enemyGraveyard, ...movedEnemyCards];
+            const playerRevives = shuffle(nextPlayerGraveyard).slice(0, playerCount);
+            const enemyRevives = shuffle(nextEnemyGraveyard).slice(0, enemyCount);
+            const nextPlayerBoard = Array(14).fill(null);
+            const nextEnemyBoard = Array(14).fill(null);
+            playerRevives.forEach((card, index) => {
+                nextPlayerBoard[index] = createUnit(card);
+            });
+            enemyRevives.forEach((card, index) => {
+                nextEnemyBoard[index] = createUnit(card);
+            });
+            setPlayerBoard(nextPlayerBoard);
+            setEnemyBoard(nextEnemyBoard);
+            setPlayerGraveyard(nextPlayerGraveyard.filter(card => !playerRevives.includes(card)));
+            setEnemyGraveyard(nextEnemyGraveyard.filter(card => !enemyRevives.includes(card)));
+            log('[WANDA] Realidade alternativa trocou arena e cemiterios.');
+            setEffectMode(null);
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
+        if (source.card.id === '92') {
+            const isPlayer = playerBoard.some(u => u?.id === source.id);
+            const myBoard = isPlayer ? playerBoard : enemyBoard;
+            const setMyBoard = isPlayer ? setPlayerBoard : setEnemyBoard;
+            const newBoard = myBoard.map(unit => unit?.id === source.id ? {
+                ...unit,
+                isIntangible: true,
+                effectTurns: 3,
+                statusEffect: 'intangible',
+                statusText: 'INTANGIBLE (3T)'
+            } : unit);
+            setMyBoard(newBoard);
+            log('[VISAO] Intangivel por 3T.');
+            setEffectMode(null);
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
+        if (source.card.id === '47') {
+            const isPlayer = playerBoard.some(u => u?.id === source.id);
+            const myBoard = isPlayer ? playerBoard : enemyBoard;
+            const setMyBoard = isPlayer ? setPlayerBoard : setEnemyBoard;
+            const graveyard = isPlayer ? playerGraveyard : enemyGraveyard;
+            const setGraveyard = isPlayer ? setPlayerGraveyard : setEnemyGraveyard;
+            const newBoard = myBoard.map(unit => unit?.id === source.id ? {
+                ...unit,
+                originalHealth: unit.originalHealth ?? unit.currentHealth,
+                currentHealth: unit.currentHealth + 1000,
+                card: { ...unit.card, def: unit.currentHealth + 1000 },
+                effectTurns: 3,
+                statusEffect: 'agamotto',
+                statusText: 'AGAMOTTO (3T)'
+            } : unit);
+            setMyBoard(newBoard);
+            setShowGraveyard(isPlayer ? 'player' : 'enemy');
+            setGraveyardSelectorMode({
+                title: 'DR ESTRANHO: REVIVER 1 ALIADO',
+                onSelect: (card) => {
+                    const revivedUnit = createUnit(card);
+                    setMyBoard(currentBoard => {
+                        const empty = currentBoard.findIndex(slot => slot === null);
+                        if (empty === -1) return currentBoard;
+                        return currentBoard.map((slot, index) => index === empty ? revivedUnit : slot);
+                    });
+                    setGraveyard(graveyard.filter(graveCard => graveCard !== card));
+                    log(`[STRANGE] ${card.name} reviveu.`);
+                }
+            });
+            log('[STRANGE] Olho de Agamotto ativo.');
+            setEffectMode(null);
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
         // [ESTELAR] (ID 150) - Explosao de Energia (2 alvos)
         if (source.card.id === '150') {
+            const isPlayerSource = playerBoard.some(u => u?.id === source.id);
             setEffectMode({
                 sourceId: source.id,
-                sourceBoard: cardPopup!.board,
-                type: 'multi_target_damage',
-                targetsLeft: 2,
-                damage: 9999 // Elimina
+                sourceBoard: isPlayerSource ? 'player' : 'enemy',
+                type: 'estelar_destroy',
+                targetsLeft: 2
             });
             log(`[ESTELAR] Estelar: Selecione ate 2 oponentes para eliminar!`);
             if (cardPopup) setCardPopup(null);
@@ -2581,19 +2926,6 @@ export const TestLab: React.FC = () => {
         }
 
         // [CICLOPE] (ID 154) - Raio Optico (3 alvos)
-        if (source.card.id === '154') {
-            setEffectMode({
-                sourceId: source.id,
-                sourceBoard: cardPopup!.board,
-                type: 'multi_target_damage',
-                targetsLeft: 3,
-                damage: 1000
-            });
-            log(`[CICLOPE] Ciclope: Selecione ate 3 oponentes para atingir com 1000 de dano!`);
-            if (cardPopup) setCardPopup(null);
-            return;
-        }
-
         // ⚔️ TRUNKS (ID 132) - Buff + Debuff
         if (source.card.id === '132') {
             forceTargetSelect(source.id, (targetId) => {
@@ -2647,6 +2979,28 @@ export const TestLab: React.FC = () => {
         }
 
         // 🐜 FORMIGA (ID 144) - Esquiva
+        if (source.card.id === '138') {
+            const isPlayer = playerBoard.some(u => u?.id === source.id);
+            const myBoard = isPlayer ? playerBoard : enemyBoard;
+            const setMyBoard = isPlayer ? setPlayerBoard : setEnemyBoard;
+            const newBoard = [...myBoard];
+            const idx = newBoard.findIndex(u => u?.id === source.id);
+            if (idx !== -1 && newBoard[idx]) {
+                const neji = newBoard[idx]!;
+                newBoard[idx] = {
+                    ...neji,
+                    isReady: true,
+                    statusEffect: 'guard',
+                    statusText: 'NEJI READY'
+                };
+                setMyBoard(newBoard);
+                log('[NEJI] HB reativa armada.');
+            }
+            setEffectMode(null);
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
         if (source.card.id === '144') {
             const isPlayer = playerBoard.some(u => u?.id === source.id);
             const myBoard = isPlayer ? playerBoard : enemyBoard;
@@ -2667,12 +3021,15 @@ export const TestLab: React.FC = () => {
 
         // 🐝 VESPA (ID 145) - Multi Target
         if (source.card.id === '145') {
+            const baseVespa = initialCards.find(c => c.id === '145');
+            const vespaDamage = baseVespa?.atk ?? source.currentAttack;
+            const isPlayerSource = playerBoard.some(u => u?.id === source.id);
             setEffectMode({
                 sourceId: source.id,
-                sourceBoard: cardPopup!.board,
+                sourceBoard: isPlayerSource ? 'player' : 'enemy',
                 type: 'multi_target_damage', // Reusing Zoro logic type if available or handling generic
                 targetsLeft: 3,
-                damage: 300 // Low damage assumption
+                damage: vespaDamage
             });
             log(`🐝 Vespa: Selecione até 3 alvos!`);
             if (cardPopup) setCardPopup(null);
@@ -2680,7 +3037,7 @@ export const TestLab: React.FC = () => {
         }
 
         // 🗿 COISA (ID 146) - Tripica ATK
-        if (source.card.id === '146') {
+        if (false) {
             const isPlayer = playerBoard.some(u => u?.id === source.id);
             const myBoard = isPlayer ? playerBoard : enemyBoard;
             const setMyBoard = isPlayer ? setPlayerBoard : setEnemyBoard;
@@ -2701,6 +3058,33 @@ export const TestLab: React.FC = () => {
         }
 
         // 🕷️ VIÚVA NEGRA (ID 165) - Dano + Silence
+        if (source.card.id === '165') {
+            const isPlayer = playerBoard.some(u => u?.id === source.id);
+            const tBoard = isPlayer ? enemyBoard : playerBoard;
+            const setTBoard = isPlayer ? setEnemyBoard : setPlayerBoard;
+            forceTargetSelect(source.id, (targetId) => {
+                let targetFound = false;
+                const newT = tBoard.map(unit => {
+                    if (!unit) return unit;
+                    const damagedHealth = unit.id === targetId ? unit.currentHealth - 500 : unit.currentHealth;
+                    if (unit.id === targetId) targetFound = true;
+                    return damagedHealth <= 0 ? null : {
+                        ...unit,
+                        currentHealth: damagedHealth,
+                        isSilenced: true,
+                        effectTurns: 2,
+                        statusText: 'SILENCED',
+                        card: { ...unit.card, def: damagedHealth }
+                    };
+                });
+                if (!targetFound) return;
+                setTBoard(newT);
+                log('[VIUVA NEGRA] Dano 500 aplicado e oponentes silenciados por 2T.');
+            });
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
         if (source.card.id === '165') {
             forceTargetSelect(source.id, (targetId) => {
                 const isPlayer = playerBoard.some(u => u?.id === source.id);
