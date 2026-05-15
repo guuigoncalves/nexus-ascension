@@ -1,5 +1,5 @@
 # GESTÃO — NEXUS ASCENSION
-**Versão:** 10.0 | **Data:** 08/05/2026 | **Gerado por:** Claude (Chat de Gestão)
+**Versão:** 12.0 | **Data:** 09/05/2026 | **Gerado por:** Claude (Chat de Gestão)
 **Documento canônico único. Cole este arquivo para retomar o projeto.**
 
 ---
@@ -30,12 +30,16 @@ Perguntar se Guilherme quer trabalho paralelo (múltiplos agentes) ou sequencial
 | Papel | Ferramenta | Função |
 |-------|-----------|--------|
 | Chat de Gestão | Claude (claude.ai) | Decide, documenta, gera instruções |
-| Executor principal | Codex App (OpenAI) | Backend, bugs profundos, multi-arquivo |
-| Executor UI/UX | Antigravity (Google) | Interface, layout, preview visual |
-| Executor alternativo | Cursor | Backend alternativo, BYOK |
+| Executor principal | Codex App/CLI (OpenAI) | /goal autônomo, bugs profundos, arquivos > 150KB |
+| Executor UI/UX | Antigravity (Google) | Interface, layout, preview visual, Skills |
+| Executor alternativo | Windsurf | Backend alternativo — cota um pouco maior que Cursor |
 | Alternativo UI | Trae | Fallback do Antigravity |
-| Backstop | Windsurf | Cascade Flow — usar só quando outros falharem |
-| Backstop ilimitado | Kilo Code / Cline | BYOK ilimitado — emergências |
+| Backstop ilimitado | Kilo Code / Cline | BYOK gratuito — emergências sem cota |
+| Backstop terminal | OpenCode | Fallback do Codex CLI quando cota esgotar |
+
+> **Nota sobre Cursor:** Trava rapidamente. Usar apenas para fixes pontuais de 1-2 linhas via BYOK.
+> **Nota sobre Windsurf:** Cota ligeiramente maior que Cursor. Histórico crítico — revisar TODO diff antes de aceitar.
+> **Fluxo é 100% gratuito.** Codex App via ChatGPT Plus ($20/mês já pago para outros fins) é o único custo.
 
 **Fluxo obrigatório:**
 1. Claude decide e gera instrução precisa com IDE/modelo
@@ -56,7 +60,7 @@ Nome original: **JC Card Wars (JCCW)** — preservado para rastreabilidade.
 | App atual (Dev) | Copyright (Marvel, DC, Dragon Ball, Naruto, One Piece...) | Em desenvolvimento |
 | Jogo original (futuro) | Personagens do livro de Guilherme | Aguarda livro |
 
-**Status:** ALPHA — ~55% concluído
+**Status:** ALPHA — ~58% concluído
 **Pasta local:** ~/Documentos/Projetos IDEs/jc-card-wars
 **Dev:** http://localhost:5174/ | **Deploy:** Vercel
 
@@ -113,6 +117,11 @@ Nome original: **JC Card Wars (JCCW)** — preservado para rastreabilidade.
 - **Textos via CardEditor:** Pode gerar overrides no localStorage. Limpar storage resolve.
 - **UI e lógica juntas:** Nunca refatorar UI e lógica de cartas no mesmo commit/agente.
 - **Trabalho paralelo:** Só funciona quando os arquivos não se cruzam. Ver Seção 12.
+- **Regressões de /goal:** O critério de parada do /goal é "build verde", não "jogo funcionando". Sempre validar carta a carta no browser após cada comando. Bugs de lógica passam pelo build silenciosamente.
+- **Textos de HB no jogo:** O /goal pode reescrever strings de HB durante refatorações. Após cada ciclo, comparar textos exibidos contra a Seção 7 e corrigir divergências.
+- **Cursor:** Trava rapidamente. Reservar para fixes de 1-2 linhas via BYOK. Não usar como executor principal.
+- **Fragmentação de contexto (Antigravity):** Thread longa re-lê histórico inteiro a cada prompt, esgotando cota. Regra: tarefa nova = pasta limpa / thread nova.
+- **Skills no Antigravity:** Usar @nome-da-skill em vez de forçar leitura contínua do AGENTS.md. Skills injetam contexto apenas quando chamadas, economizando a janela.
 
 ---
 
@@ -125,32 +134,26 @@ Camada 1 — Motor puro
 
 Camada 2 — Estado
   BattleContext.tsx: todos os hotfixes aplicados.
-  (localStorage.clear() removido, nexus_v2_ namespace,
-   activateAbility corrigido, confirmSacrifice onPlay,
-   handleDeathTrigger universal, spread operator em tudo)
 
 Camada 3 — Interface
-  TestLab.tsx:
+  TestLab.tsx (~200KB):
     interactionMode (IDLE/SELECTING_ATTACK_TARGET/SELECTING_ABILITY_TARGET)
     Drag & Drop / clique Mão-Arena com swap
     Layout grid 2 colunas, barra lateral 260px
     Arena 14 slots por jogador (grid 7x2)
-    Alternância lado [L/R]
-    Botões Voltar/Retroceder/Avançar/L|R SEMPRE acima da barra de pesquisa (ordem fixa)
-    Aba unificada [HAB|LOG] — clique alterna, duplo-clique em LOG copia
-    Lista de personagens inline na barra lateral (lupa no campo de busca)
-    Filtros na lista: status OK/Pendente/DLC, universo, raridade, AT, DF
+    Botões Voltar/Retroceder/Avançar/L|R acima da barra de pesquisa
+    Lista de personagens inline na barra lateral (lupa → X)
+    Filtros na lista: status, universo, raridade, AT, DF
     Botão Aleatório com sub-menu: [Adversário] [Meu lado] [Ambos]
     Botão Reset com sub-menu: [Adversário] [Meu lado] [Ambos]
     Aba Habilidades exibe: Nome | AT | DF | texto da HB
+    Log renderizado abaixo de Habilidades (Split-Pane, sem abas)
     Setup Dinâmico (initialCards.find — sem IDs hardcoded)
     Setup Escarlate (preset especial para testar carta 53)
+    Botão CEM com modal de visualização
+    Habilidades do Oponente liberadas para teste
     ASCII puro
 ```
-
-> **ATENÇÃO:** Os itens marcados acima (botões, filtros, sub-menus, setup Escarlate, aba unificada,
-> lista inline, lupa) são os prompts UI-A a UI-H do PROMPTS_EXECUCAO.md.
-> **Status: prompts prontos, aguardando execução.** Confirme com Guilherme quais já foram feitos.
 
 ---
 
@@ -268,9 +271,9 @@ Texto marcado com "Carta não criada ainda" = DLC. Não implementar.
 | 90 | Lanterna Verde | 1550 | 1550 | Cria construtos de energia: para realizar AT adicional de 1200. Que pode ser lançado no T do oponente. Dura 3T. |
 | 91 | Sinestro | 1550 | 1500 | Usa o anel do medo paralisando AT e HB de 1 oponente por 2T. E absorve 50% de sua DF permanentemente. |
 | 92 | Visão | 1550 | 1520 | Fica intangível por 3T, não sofrendo com AT, HB e EF. Pode atravessar escudos. |
-| 93 | Hela | 1550 | 1550 | Cada oponente derrotado aumenta 50% seu AT. Com 1 sacrifício, revive 1 vilão geral. |
+| 93 | Hela | 1550 | 1550 | Cada oponente derrotado aumenta 50% seu AT. Com 1 sacrifício, abre o cemitério inimigo para roubar 1 carta e colocá-la na sua arena. |
 | 94 | Loki | 1500 | 1500 | Destrói uma linha do tempo, apagando todas as cartas adversárias do universo escolhido, na arena. (apenas 1x) |
-| 95 | Ravena | 1550 | 1500 | Invoca uma aura psíquica que absorve o AT de 2 oponentes, transferindo para sua DF. E anula os EF do oponente. Dura 2T. |
+| 95 | Ravena | 1550 | 1500 | Invoca uma aura psíquica que absorve o AT de 2 oponentes (subtraindo deles), transferindo para sua DF. E anula os EF do oponente. Dura 2T. Ao fim, os alvos recuperam o AT perdido. |
 | 96 | Professor X | 1450 | 1400 | Controla totalmente 1 oponente da arena ou cemitério por 3T e reduz em 50% os AT recebidos nesse período. |
 | 97 | Kratos | 1550 | 1550 | Ao derrotar um oponente, incorpora sua HB. (apenas uma vez) |
 | 98 | Itachi Uchiha | 1550 | 1550 | Por 3T Aprisiona o alvo em um genjutsu, impedindo-o de usar AT e HB. E forçando-o a atacar 1 aliado por T. |
@@ -361,81 +364,97 @@ Texto marcado com "Carta não criada ainda" = DLC. Não implementar.
 
 ---
 
-## 8. STATUS DE IMPLEMENTAÇÃO — 08/05/2026
+## 8. STATUS DE IMPLEMENTAÇÃO — 09/05/2026
 
-### Cartas validadas no TestLab (lista limpa e consolidada)
+### Cartas validadas no TestLab
 
-**Pré-sprint (implementadas antes do sprint formal):**
-11 (Darkseid), 13 (Odin), 18 (Sentry), 131 (Zoro), 139 (Homem-Aranha), 159 (Deadpool), 160 (Capitão América), 161 (Shuri), 162 (Homem Elástico), 189 (Asa Noturna), 190 (Caveira Vermelha), 191 (Duende Verde), 192 (Rocket Raccoon), 193 (Groot), 194 (Gavião Arqueiro), 211 (Arlequina), 212 (Coringa), 213 (Nami), 214 (Usopp), TOK_SHENLONG
+**Pré-sprint:** 11, 13, 18, 131, 139, 159, 160, 161, 162, 189, 190, 191, 192, 193, 194, 211, 212, 213, 214, TOK_SHENLONG
+**Bloco 4:** 132, 133, 136, 137
+**Lote 5A:** 144, 163, 190*, 191*, 192*, 194*
+**Lotes 5B+5C:** 28, 29, 35, 86, 87, 146, 148, 151
+**Lotes 5D+5E:** 126, 127, 150, 152, 154, 157, 158, 172, 173, 175
+**Lote 5F parcial:** 47, 92, 138
+**Ciclo /goal 1+2:** 27, 31, 56, 91, 94, 145, 165, 139*
 
-**Bloco 4:**
-132 (Trunks), 133 (Goten), 136 (Boruto), 137 (Rock Lee)
-> Nota: 131 e 193 já estavam no pré-sprint, sem duplicata.
+**Com ressalvas — Reaction Window pendente (Bloco 9):** 164, 195
+**TOTAL VALIDADAS: ~53 únicas**
 
-**Lote 5A:**
-144 (Homem-Formiga), 163 (Mulher Invisível), 190 (Caveira Vermelha)\*, 191 (Duende Verde)\*, 192 (Rocket Raccoon)\*, 194 (Gavião Arqueiro)\*
-> \* Revalidadas com motor novo.
-
-**Lotes 5B + 5C:**
-28 (Adão Negro), 29 (Shazam), 35 (Gohan Beast), 86 (Luffy Gear 5), 87 (Mulher Maravilha), 146 (Coisa), 148 (Tocha Humana), 151 (Drax)
-
-**Lotes 5D + 5E:**
-126 (Homem de Ferro), 127 (Pantera Negra), 150 (Estelar), 152 (Gamora), 154 (Ciclope), 157 (Oob), 158 (Killmonger), 172 (Kuririn), 173 (Tenshinhan), 175 (Sakura)
-
-**Lote 5F (parcial):**
-47 (Dr. Estranho), 92 (Visão), 138 (Neji Hyuga)
-
-**Com ressalvas — Reaction Window pendente (Bloco 9):**
-164 (Wong), 195 (Mysterio)
-
-**TOTAL VALIDADAS: ~53 cartas únicas**
-
----
-
-### Bugs abertos
+### Bugs de lógica abertos (pós ciclos /goal)
 | ID | Carta | Bug | Prioridade |
 |----|-------|-----|------------|
-| B-145 | Vespa (145) | HB não remove carta com DF <= 0 | ALTA — próxima sessão |
-| B-165 | Viúva Negra (165) | TARGET_SELECT em loop; cartas duplicam | ALTA — próxima sessão |
+| B-26 | Goku UI | Sofre dano normal. Deve desviar AT, HB e EF enquanto ativo | ALTA |
+| B-33 | Freeza Black | Motor não aplica morte a ele ao atacar carta com DF muito maior | ALTA |
+| B-34 | Saitama | Cooldown não desconta por turno. Consegue deletar Divinos (errado) | ALTA |
+| B-36 | Thor | Clique não atualiza mesa imediatamente. Efeito só aparece ao selecionar todos | MÉDIA |
+| B-51 | Magneto | Mesmo problema do Thor — atualização não é imediata por clique | MÉDIA |
+| B-76 | Naruto | Escudo bloqueia recuo do atacante fraco. Atacante deve morrer normalmente | ALTA |
+| B-90 | Lanterna Verde | AT extra de 1200 engatilha automático. Deve ser ativação MANUAL | MÉDIA |
+| B-93 | Hela | Não ganha AT ao derrotar inimigo. HB manual deve abrir cemitério inimigo | ALTA |
+| B-95 | Ravena | Absorção não subtrai AT dos alvos. Deve subtrair e devolver ao fim dos 2T | MÉDIA |
 
-### Melhorias de UI — status
+### Pendências de UI
 | Tarefa | Descrição | Status |
 |--------|-----------|--------|
-| UI-A | Botões Voltar/Retroceder/Avançar/L\|R acima da barra de pesquisa | ⏳ Prompt pronto |
-| UI-B | Lupa no lado direito da barra de pesquisa (substitui botão Lista) | ⏳ Prompt pronto |
-| UI-C | Lista de personagens inline na barra lateral | ⏳ Prompt pronto |
-| UI-D | Filtros na lista (status, universo, raridade, AT, DF) | ⏳ Prompt pronto |
-| UI-E | Aleatório e Reset com sub-menu [Adversário/Meu lado/Ambos] | ⏳ Prompt pronto |
-| UI-F | Aba Habilidades exibe Nome, AT, DF além da HB | ⏳ Prompt pronto |
-| UI-G | Botões Habilidades+Log unificados em alternância | ⏳ Prompt pronto |
-| UI-H | Setup Escarlate (preset para testar carta 53) | ⏳ Prompt pronto |
+| UI-i1 | Botões < e > ainda gigantes. Forçar w-10 h-10 redondo | Pendente |
+| UI-i2 | Remover seta/dropdown icon nos botões de filtro da lista | Pendente |
+| UI-i3 | AT e DF da lista alinhados à direita (justify-between) | Pendente |
+| UI-i4 | Drag & Drop para dentro do slot do Cemitério | Pendente |
+| UI-i5 | Setup não deve limpar Cemitério ao ser acionado | Pendente |
+| UI-i6 | Botão Voltar: substituir por ícone de seta pequeno no canto superior esquerdo | Pendente |
 
-> Todos os prompts estão em PROMPTS_EXECUCAO.md. Nenhuma UI foi executada ainda — confirmar com Guilherme.
-
-### A implementar — Bloco 6+
-Ver PROMPTS_EXECUCAO.md para prompts prontos por lote (6A a 6E).
-
----
-
-## 9. PLANO COMPLETO
-
-| Bloco | Escopo | Status | Período |
-|-------|--------|--------|---------|
-| Blocos 0–5 | Motor + infraestrutura + cartas simples | ✅ ~95% | Abr/2026 |
-| Bloco 5F | Bugs 145/165 + UI A–H | 🔄 Em andamento | Mai/2026 |
-| Bloco 6 | ~28 cartas médias (lotes 6A–6E) | ⏳ Prompts prontos | Mai/2026 |
-| Bloco 7 | ~21 cartas complexas | ⏳ | Jun–Jul/2026 |
-| Bloco 8 | ~40 cartas especiais | ⏳ | Jul/2026 |
-| Bloco 9 | Arena multiplayer + Reaction Window | ⏳ | Jul–Ago/2026 |
-| Bloco 10 | Gacha + Shop | ⏳ | Ago–Set/2026 |
-| Bloco 11 | Ranking + Troféus | ⏳ | Set/2026 |
-| Bloco 12 | Polimento + revisão textos | ⏳ | Set–Out/2026 |
-
-**Release Dev: outubro/novembro 2026**
+### Pendência de revisão
+| Item | Descrição |
+|------|-----------|
+| REV-1 | Varredura de regressões em cartas antigas (ao menos 1 quebrada pós /goal) |
+| REV-2 | Comparar todos os textos de HB exibidos no jogo contra Seção 7. Corrigir divergências. |
+| REV-3 | Cartas 63 (Trunks do Futuro) e 77 (Sasuke) pausadas para revisão de texto |
 
 ---
 
-## 10. CHECKPOINTS
+## 9. PLANO DE EXECUÇÃO — OBJETIVO: FECHAR TODAS AS CARTAS ATÉ MEADOS DE BLOCO 8
+
+### Prioridade imediata — Comando Gigante 3 (correções)
+**Objetivo:** Fechar os 9 bugs de lógica + 6 pendências de UI em um único /goal
+**IDE 1:** Codex CLI /goal | **IDE 2:** Windsurf | **IDE 3:** Kilo Code + Groq
+**Regra:** Bugs de lógica primeiro. UI no mesmo comando se o budget permitir.
+
+### Sequência de lotes após correções
+
+| Fase | Cartas | IDE 1 | IDE 2 | IDE 3 |
+|------|--------|-------|-------|-------|
+| Lote 6A restante | 25, 26*, 33* (reabrir com fix), 49, 52 | Codex /goal | Windsurf | Kilo Code |
+| Lote 6B | 34*, 36*, 51*, 55, 57 | Codex /goal | Windsurf | Kilo Code |
+| Lote 6C | 59, 60, 63**, 76*, 77** | Codex /goal | Windsurf | Kilo Code |
+| Lote 6D restante | 90*, 91*, 93*, 95*, 128 | Codex /goal | Windsurf | Kilo Code |
+| Lote 6E restante | 139* já OK. Restam: 129, 130, 147, 149, 153 | Codex /goal | Windsurf | Kilo Code |
+| Varredura + textos | REV-1, REV-2, REV-3 | Codex /goal leitura | Antigravity Sonnet | Kilo Code |
+| Bloco 7 (complexas) | ~21 cartas: Cell, Thanos, Flash, Orochimaru... | Codex /goal | Windsurf | Kilo Code |
+| Bloco 8 (volume) | ~40 cartas Soldado/Recruta | Codex /goal | Antigravity Flash | Kilo Code |
+
+> * Bug aberto — reabre no lote após fix do Comando 3
+> ** Pausada para revisão de texto
+
+**Nota de IDEs:** Cursor reservado apenas para fixes pontuais de 1-2 linhas via BYOK. Windsurf como IDE 2 padrão (cota maior que Cursor) — sempre revisar diff completo antes de aceitar.
+
+---
+
+## 10. CRONOGRAMA ATUALIZADO — 09/05/2026
+
+| Bloco | Escopo | Previsão |
+|-------|--------|----------|
+| Correções (Cmd 3) | 9 bugs lógica + 6 UI + varredura | Final mai 2026 |
+| Bloco 6 completo | ~20 cartas restantes | Junho 2026 |
+| Bloco 7 | ~21 cartas complexas | Julho 2026 |
+| Bloco 8 | ~40 cartas Soldado/Recruta | Agosto 2026 |
+| Bloco 9 | Arena multiplayer + Reaction Window | Outubro 2026 |
+| Blocos 10-11 | Gacha, Shop, Ranking, Troféus | Nov/Dez 2026 |
+| Bloco 12 | Polimento, revisão final de textos | Dez 2026/Jan 2027 |
+
+**Release Dev estimado: janeiro 2027**
+
+---
+
+## 11. CHECKPOINTS
 
 ```
 PONTO 0 — 05/03/2026 — Estrutura de gestão fundada.
@@ -447,87 +466,60 @@ PONTO 5 — 22/04/2026 — Lotes 5A, 5B, 5C. TestLab reestruturado.
 PONTO 6 — 29/04/2026 — Lotes 5D+5E. Fix Mão→Arena. UI estável.
 PONTO 7 — 30/04/2026 — CSV incorporado. R17/R18/R19. Bugs 145/165 abertos.
 PONTO 8 — [pendente] — Pré-requisitos:
-  [ ] Bug B-145 (Vespa) corrigido e testado
-  [ ] Bug B-165 (Viúva Negra) corrigido e testado
-  [ ] UI-A a UI-H executadas e testadas no browser
-  [ ] Pelo menos 1 lote do Bloco 6 validado no TestLab
+  [ ] 9 bugs de lógica (B-26 a B-95) corrigidos
+  [ ] 6 pendências de UI (UI-i1 a UI-i6) executadas
+  [ ] REV-1: varredura de regressões concluída
+  [ ] REV-2: todos os textos de HB conferidos contra Seção 7
+  [ ] Pelo menos 1 lote do Bloco 6 validado após correções
 ```
-
----
-
-## 11. FERRAMENTAS — EXTENSÕES A INSTALAR
-
-| Ferramenta | O que é | Como instalar |
-|-----------|---------|---------------|
-| Roo Code | Extensão BYOK para VS Code | VS Code → Extensions → "Roo Code" → Install |
-| Cline | Extensão open source BYOK para VS Code | VS Code → Extensions → "Cline" → Install |
-| Continue.dev | Assistência de código com qualquer API | VS Code → Extensions → "Continue" → Install |
-| Claude Code | CLI da Anthropic no terminal | npm install -g @anthropic/claude-code (pago por token) |
-
-**Configuração recomendada para emergência:** Roo Code com chave Gemini AI Studio (grátis).
 
 ---
 
 ## 12. TRABALHO PARALELO
 
-**O novo chat deve perguntar ao iniciar:** "Quer trabalho paralelo hoje ou sequencial?"
-
-**Quando funciona bem:**
-- Agente A trabalhando em arquivo X enquanto Agente B trabalha em arquivo Y completamente diferente
-- Exemplo seguro: Antigravity fazendo UI-A a UI-H (TestLab — layout) enquanto Codex corrige B-145/B-165 (TestLab — lógica de cartas)
-- **ATENÇÃO:** Mesmo que os dois agentes editem TestLab.tsx, se as seções forem completamente separadas (blocos str_replace distintos, sem sobreposição), pode funcionar. Mas exige coordenação explícita.
-
-**Quando NÃO funciona:**
-- Dois agentes no mesmo trecho de código ao mesmo tempo
-- Ex: Antigravity e Codex ambos editando o bloco executeEffect() simultaneamente
-
-**Recomendação:** Para esta fase, use paralelo apenas se separar claramente UI (Antigravity) vs lógica de carta (Codex) em sessões sem conflito de trecho. Começar sequencial e só paralelizar quando os arquivos forem claramente distintos.
+**Quando funciona:** Agente A em arquivo X, Agente B em arquivo Y completamente diferente.
+**Quando NÃO funciona:** Dois agentes no mesmo trecho de código.
+**Recomendação atual:** Sequencial. TestLab.tsx é único e crítico — paralelizar só quando a tarefa for explicitamente em arquivo separado.
 
 ---
 
-## 13. ARSENAL DE FERRAMENTAS — VERSÕES CORRETAS
+## 13. ARSENAL — FERRAMENTAS E MODELOS
 
-### Antigravity — modelos reais disponíveis
-| Modelo | Quando usar |
-|--------|-------------|
-| Gemini 3 Flash | Simples, 1–2 linhas, fixes rápidos |
-| Gemini 3 Pro Low | Lógica moderada, componentes |
-| Gemini 3 Pro High | Contexto maior, análise complexa |
-| Claude Sonnet | Arquivos > 500 linhas, multi-arquivo |
-| Claude Opus | Último recurso |
+### Fluxo 100% gratuito (padrão)
 
-**NÃO EXISTE "Gemini 1.5" ou "Gemini 2.5" no Antigravity.**
+| Ferramenta | Modelo | Quando usar |
+|-----------|--------|-------------|
+| Codex CLI /goal | GPT-5.4 (Plus incluso) | Executor principal — arquivos > 150KB, /goal autônomo |
+| Antigravity | Gemini 3 Flash | UI isolada, fixes simples, arquivos < 150KB |
+| Antigravity | Gemini 3 Pro Low | Lógica moderada, componentes |
+| Antigravity | Claude Sonnet | Arquivos grandes, multi-arquivo — quando cota Flash esgotar |
+| Windsurf | Auto | Backup de lógica. Cota > Cursor. Sempre revisar diff. |
+| Trae | Auto | Fallback UI quando Antigravity indisponível |
+| Kilo Code | Groq Llama 3.3 70B | Backstop ilimitado gratuito — emergência sem cota |
+| OpenCode | NVIDIA Build (gratuito) | Fallback de terminal quando Codex CLI esgotar |
+| Cursor | BYOK Gemini AI Studio | Apenas fixes de 1-2 linhas. Trava rápido. |
 
-### Seleção por tarefa (3 IDEs cada)
-| Tipo | IDE 1 | Modelo | IDE 2 | IDE 3 |
-|------|-------|--------|-------|-------|
-| Arquivo grande (>500L) | Codex App | GPT-5.4 | Antigravity Sonnet | Cursor BYOK |
-| 1–2 linhas | Antigravity | Gemini 3 Flash | Codex mini | Trae |
-| Multi-arquivo | Codex App | GPT-5.4 + /review | Cursor BYOK | Windsurf |
-| Carta simples | Antigravity | Gemini 3 Flash | Codex mini | Trae |
-| Carta média | Antigravity | Claude Sonnet | Codex GPT-5.4 | Cursor BYOK |
-| Carta complexa | Codex App | GPT-5.4 + /review | Cursor BYOK | Kilo Code |
-| Firebase/backend | Codex App | GPT-5.4 | Cursor BYOK | Windsurf |
-| Sem cota | Cursor BYOK Gemini | — | Roo Code | Kilo Code+Groq |
+**NUNCA:** Gemini 3 Flash em BattleContext.tsx ou TestLab.tsx (arquivos > 500 linhas).
+**NUNCA:** Windsurf + Cursor simultaneamente (8GB RAM).
+**SEMPRE:** /review no Codex antes de commit em BattleContext.tsx, TestLab.tsx ou AbilityEngine.ts.
 
----
+### Seleção por tipo de tarefa
 
-## 14. LIÇÕES APRENDIDAS
-
-- L14: Codex corrompe encoding. ASCII puro em dev.
-- L15: Nunca refatorar UI e lógica ao mesmo tempo.
-- L16: Motor canônico primeiro. Depois cartas.
-- L17: Múltiplas flags de clique = bugs. Sempre interactionMode.
-- L18: Clique para após implementar cartas = estado de interação corrompido.
-- L19: Build pode passar mas ReferenceError trava React silenciosamente.
-- L20: AI Studio alucina HBs sem texto oficial. R17/R18 são inegociáveis.
-- L21: Versões do Gemini: Gemini 3 no Antigravity. Não confundir com versões da API externa.
-- L22: Trabalho paralelo só quando trechos de código não se cruzam.
-- L23: Lista de cartas validadas deve ser consolidada sem duplicatas a cada checkpoint.
+| Tipo | IDE 1 | IDE 2 | IDE 3 |
+|------|-------|-------|-------|
+| Arquivo grande > 150KB | Codex /goal GPT-5.4 | Windsurf | Kilo Code + Groq |
+| Bug profundo multi-arquivo | Codex /goal GPT-5.4 | Windsurf | Kilo Code + Groq |
+| UI isolada / layout | Antigravity Gemini Flash | Trae | Kilo Code + Groq |
+| Carta simples | Antigravity Gemini Flash | Kilo Code + Groq | Trae |
+| Carta média | Codex /goal GPT-5.4 | Windsurf | Kilo Code + Groq |
+| Carta complexa | Codex /goal GPT-5.4 | Windsurf | Kilo Code + Groq |
+| Fix pontual 1-2 linhas | Cursor BYOK Gemini | Antigravity Flash | Trae |
+| Varredura / review | Codex leitura | Kilo Code + Groq | — |
+| Sem cota nenhuma | Kilo Code + Groq | OpenCode NVIDIA | Trae |
 
 ---
 
-## 15. DECISÕES REGISTRADAS
+## 14. DECISÕES REGISTRADAS
 
 | Data | Decisão |
 |------|---------|
@@ -540,35 +532,25 @@ PONTO 8 — [pendente] — Pré-requisitos:
 | 29/04/2026 | Drag & Drop Mão↔Arena com swap |
 | 30/04/2026 | R17+R18+R19: nunca inventar HB; CSV é lei |
 | 30/04/2026 | Reaction Window de Wong/Mysterio aguarda Bloco 9 |
-| 30/04/2026 | CSV completo incorporado na Seção 7 |
-| 08/05/2026 | Lista de cartas validadas consolidada e limpa (sem duplicatas) |
-| 08/05/2026 | UI-A a UI-H: prompts prontos, execução pendente |
-| 08/05/2026 | Setup Escarlate (UI-H): prompt pronto, execução pendente |
-| 08/05/2026 | PONTO 8: pré-requisitos detalhados documentados |
-| 08/05/2026 | Seção de transição entre Chats de Gestão adicionada (Seção 16) |
+| 08/05/2026 | /goal Codex CLI adotado como executor principal |
+| 08/05/2026 | Lista de cartas validadas consolidada (sem duplicatas) |
+| 09/05/2026 | Cursor rebaixado: apenas fixes de 1-2 linhas via BYOK |
+| 09/05/2026 | Windsurf promovido a IDE 2 padrão (cota > Cursor) |
+| 09/05/2026 | HB da Hela alterada: HB manual abre cemitério inimigo para roubar carta |
+| 09/05/2026 | HB da Ravena corrigida: absorção subtrai AT dos alvos, devolvido ao fim |
+| 09/05/2026 | Varredura de regressões + revisão de textos de HB adicionadas ao plano |
 
 ---
 
-## 16. TRANSIÇÃO ENTRE CHATS DE GESTÃO
+## 15. TRANSIÇÃO ENTRE CHATS DE GESTÃO
 
-Esta seção deve ser lida quando o Chat de Gestão atual encerrar e um novo for iniciado.
+1. Chat atual gera GESTAO.md atualizado como última ação.
+2. Novo chat recebe este arquivo + relatório do executor.
+3. Novo chat confirma leitura e pergunta: "Paralelo ou sequencial hoje?"
+4. Não gerar prompts antes de confirmação de Guilherme.
 
-**Ritual de transição:**
-1. O Chat de Gestão atual gera o GESTAO.md atualizado (este arquivo) como última ação.
-2. O novo chat recebe este arquivo colado + relatório do executor (se houver).
-3. O novo chat confirma leitura e pergunta a Guilherme: "Paralelo ou sequencial hoje?"
-4. O novo chat NÃO começa a gerar prompts antes de receber confirmação de Guilherme.
-
-**Melhores opções para Chat de Gestão (maio/2026 — gratuitas ou com tier grátis generoso):**
-
-| # | Modelo | Plataforma | Por que serve |
-|---|--------|-----------|---------------|
-| 1 | **Claude Sonnet 4.5** (claude.ai) | Claude.ai — Projeto dedicado | Contexto longo, segue instruções estruturadas com precisão, memória de projeto, ideal para documentação e gestão |
-| 2 | **Gemini 1.5 Pro / 2.0 Flash** (AI Studio) | Google AI Studio — grátis | Contexto de 1M tokens, bom para arquivos grandes, mas pode alucinar HBs — não usar como executor de cartas |
-| 3 | **GPT-4o** (ChatGPT) | ChatGPT — tier grátis limitado | Boa capacidade de planejamento, mas limite de contexto menor; usar como alternativa se Claude estiver indisponível |
-
-> **Recomendação:** Claude (claude.ai) com Projeto dedicado é a melhor opção para Chat de Gestão. O Projeto mantém os arquivos sempre disponíveis sem necessidade de colar a cada sessão.
+**Melhor opção para Chat de Gestão:** Claude (claude.ai) com Projeto dedicado — contexto longo, segue instruções estruturadas, memória de projeto.
 
 ---
 
-_Nexus Ascension (ex-JC Card Wars) — 08/05/2026 | v10.0_
+_Nexus Ascension (ex-JC Card Wars) — 09/05/2026 | v12.0_

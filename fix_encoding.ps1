@@ -1,3 +1,4 @@
+
 $filePath = "src\pages\TestLab.tsx"
 $bytes = [System.IO.File]::ReadAllBytes($filePath)
 
