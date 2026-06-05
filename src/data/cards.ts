@@ -545,7 +545,7 @@ export const initialCards: Card[] = [
         "atk": 1550,
         "def": 1550,
         "rarity": "Titã",
-        "description": "Cada oponente derrotado aumenta 50% seu Ataque. Com 1 sacrifício, revive 1 vilão geral",
+        "description": "Cada oponente derrotado aumenta 20% seu Ataque por 3 Turnos. Com 1 sacrifício, revive 1 vilão geral",
         "image": "/cards/93.png"
     },
     {
@@ -565,7 +565,7 @@ export const initialCards: Card[] = [
         "atk": 1550,
         "def": 1500,
         "rarity": "Titã",
-        "description": "Invoca uma aura psíquica que absorve o Ataque de 2 oponentes, transferindo para sua Defesa. E anula os Efeito do oponente. Dura 2 Turnos.",
+        "description": "Invoca uma aura psíquica que absorve o Ataque de 2 oponentes, subtraindo deles e transferindo para sua Defesa. E anula os Efeito do oponente. Dura 2 Turnos. Ao fim, os alvos recuperam o Ataque perdido.",
         "image": "/cards/95.png"
     },
     {

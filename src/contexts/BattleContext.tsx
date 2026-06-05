@@ -16,8 +16,11 @@ interface Unit extends Card {
     isFaceDown?: boolean;
     isTaunt?: boolean;
     isSilenced?: boolean;
+    isStunned?: boolean;
     isReady?: boolean;
     hasUsedAbility?: boolean;
+    originalAttack?: number;
+    originalHealth?: number;
     charges?: number;
     karmaTargetId?: string;
     karmaStage?: 1 | 2;
@@ -826,6 +829,42 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             }
 
             const nextTurn = isPlayerTurn ? prev.turn + 1 : prev.turn;
+            const updateTurnCounters = (unit: Unit): Unit => {
+                let updated = { ...unit };
+
+                if ((updated.counters?.saitamaCooldown || 0) > 0) {
+                    updated.counters = { ...updated.counters, saitamaCooldown: Math.max(0, (updated.counters?.saitamaCooldown || 0) - 1) };
+                }
+                if ((updated.counters?.statusTurns || 0) > 0) {
+                    const nextStatusTurns = Math.max(0, (updated.counters?.statusTurns || 0) - 1);
+                    updated.counters = { ...updated.counters, statusTurns: nextStatusTurns };
+                    if (nextStatusTurns === 0) {
+                        updated.isStunned = false;
+                        updated.isSilenced = false;
+                        if (updated.originalAttack !== undefined) {
+                            updated.currentAttack = updated.originalAttack;
+                            updated.originalAttack = undefined;
+                        }
+                        if (updated.originalHealth !== undefined) {
+                            updated.currentHealth = updated.originalHealth;
+                            updated.originalHealth = undefined;
+                        }
+                    }
+                }
+                if ((updated.counters?.lanternTurns || 0) > 0) {
+                    updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
+                }
+                if ((updated.counters?.helaBuffTurns || 0) > 0) {
+                    const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
+                    updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
+                    if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
+                        updated.currentAttack = updated.originalAttack;
+                        updated.originalAttack = undefined;
+                    }
+                }
+
+                return updated;
+            };
 
             const newState: BattleState = {
                 ...prev,
@@ -841,10 +880,41 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (!u) return null;
                     let updated = { ...u };
 
+                    if ((updated.counters?.saitamaCooldown || 0) > 0) {
+                        updated.counters = { ...updated.counters, saitamaCooldown: Math.max(0, (updated.counters?.saitamaCooldown || 0) - 1) };
+                    }
+                    if ((updated.counters?.statusTurns || 0) > 0) {
+                        const nextStatusTurns = Math.max(0, (updated.counters?.statusTurns || 0) - 1);
+                        updated.counters = { ...updated.counters, statusTurns: nextStatusTurns };
+                        if (nextStatusTurns === 0) {
+                            updated.isStunned = false;
+                            updated.isSilenced = false;
+                            if (updated.originalAttack !== undefined) {
+                                updated.currentAttack = updated.originalAttack;
+                                updated.originalAttack = undefined;
+                            }
+                            if (updated.originalHealth !== undefined) {
+                                updated.currentHealth = updated.originalHealth;
+                                updated.originalHealth = undefined;
+                            }
+                        }
+                    }
+                    if ((updated.counters?.lanternTurns || 0) > 0) {
+                        updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
+                    }
+                    if ((updated.counters?.helaBuffTurns || 0) > 0) {
+                        const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
+                        updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
+                        if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
+                            updated.currentAttack = updated.originalAttack;
+                            updated.originalAttack = undefined;
+                        }
+                    }
+
                     if (nextPlayer === 'player') {
-                        updated.canAttack = true; // Start of player turn
+                        updated.canAttack = !updated.isStunned; // Start of player turn
                         updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
-                        updated.isSilenced = false; // Turn-based reset
+                        if (!(updated.counters?.statusTurns || 0)) updated.isSilenced = false; // Turn-based reset
                         updated.isReady = hasManualTargetSelection(updated) && !updated.hasUsedAbility;
                         if (updated.cardId === '163' && (updated.charges || 0) > 0) {
                             updated.charges = 0;
@@ -869,10 +939,41 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (!u) return null;
                     let updated = { ...u };
 
+                    if ((updated.counters?.saitamaCooldown || 0) > 0) {
+                        updated.counters = { ...updated.counters, saitamaCooldown: Math.max(0, (updated.counters?.saitamaCooldown || 0) - 1) };
+                    }
+                    if ((updated.counters?.statusTurns || 0) > 0) {
+                        const nextStatusTurns = Math.max(0, (updated.counters?.statusTurns || 0) - 1);
+                        updated.counters = { ...updated.counters, statusTurns: nextStatusTurns };
+                        if (nextStatusTurns === 0) {
+                            updated.isStunned = false;
+                            updated.isSilenced = false;
+                            if (updated.originalAttack !== undefined) {
+                                updated.currentAttack = updated.originalAttack;
+                                updated.originalAttack = undefined;
+                            }
+                            if (updated.originalHealth !== undefined) {
+                                updated.currentHealth = updated.originalHealth;
+                                updated.originalHealth = undefined;
+                            }
+                        }
+                    }
+                    if ((updated.counters?.lanternTurns || 0) > 0) {
+                        updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
+                    }
+                    if ((updated.counters?.helaBuffTurns || 0) > 0) {
+                        const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
+                        updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
+                        if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
+                            updated.currentAttack = updated.originalAttack;
+                            updated.originalAttack = undefined;
+                        }
+                    }
+
                     if (nextPlayer === 'opponent') {
-                        updated.canAttack = true; // Start of opponent turn
+                        updated.canAttack = !updated.isStunned; // Start of opponent turn
                         updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
-                        updated.isSilenced = false; // Turn-based reset
+                        if (!(updated.counters?.statusTurns || 0)) updated.isSilenced = false; // Turn-based reset
                         updated.isReady = hasManualTargetSelection(updated) && !updated.hasUsedAbility;
                         if (updated.cardId === '163' && (updated.charges || 0) > 0) {
                             updated.charges = 0;
@@ -885,26 +986,36 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 }),
 
                 divineSlots: {
-                    player: prev.divineSlots.player.map(u => u ? {
-                        ...u,
-                        isSilenced: nextPlayer === 'player' ? false : u.isSilenced,
-                        canAttack: nextPlayer === 'player' ? true : u.canAttack,
-                        remainingAttacks: nextPlayer === 'player' ? (u.maxAttacksPerTurn ?? 1) : u.remainingAttacks,
-                        charges: nextPlayer === 'player' && u.cardId === '163' ? 0 : u.charges,
-                        isReady: nextPlayer === 'player'
-                            ? (u.cardId === '163' ? false : hasManualTargetSelection(u) && !u.hasUsedAbility)
-                            : u.isReady
-                    } : null),
-                    opponent: prev.divineSlots.opponent.map(u => u ? {
-                        ...u,
-                        isSilenced: nextPlayer === 'opponent' ? false : u.isSilenced,
-                        canAttack: nextPlayer === 'opponent' ? true : u.canAttack,
-                        remainingAttacks: nextPlayer === 'opponent' ? (u.maxAttacksPerTurn ?? 1) : u.remainingAttacks,
-                        charges: nextPlayer === 'opponent' && u.cardId === '163' ? 0 : u.charges,
-                        isReady: nextPlayer === 'opponent'
-                            ? (u.cardId === '163' ? false : hasManualTargetSelection(u) && !u.hasUsedAbility)
-                            : u.isReady
-                    } : null),
+                    player: prev.divineSlots.player.map(u => {
+                        if (!u) return null;
+                        let updated = updateTurnCounters(u);
+                        if (nextPlayer === 'player') {
+                            updated = {
+                                ...updated,
+                                isSilenced: updated.counters?.statusTurns ? updated.isSilenced : false,
+                                canAttack: !updated.isStunned,
+                                remainingAttacks: updated.maxAttacksPerTurn ?? 1,
+                                charges: updated.cardId === '163' ? 0 : updated.charges,
+                                isReady: updated.cardId === '163' ? false : hasManualTargetSelection(updated) && !updated.hasUsedAbility
+                            };
+                        }
+                        return updated;
+                    }),
+                    opponent: prev.divineSlots.opponent.map(u => {
+                        if (!u) return null;
+                        let updated = updateTurnCounters(u);
+                        if (nextPlayer === 'opponent') {
+                            updated = {
+                                ...updated,
+                                isSilenced: updated.counters?.statusTurns ? updated.isSilenced : false,
+                                canAttack: !updated.isStunned,
+                                remainingAttacks: updated.maxAttacksPerTurn ?? 1,
+                                charges: updated.cardId === '163' ? 0 : updated.charges,
+                                isReady: updated.cardId === '163' ? false : hasManualTargetSelection(updated) && !updated.hasUsedAbility
+                            };
+                        }
+                        return updated;
+                    }),
                 },
 
                 hasPlayedWarriorThisTurn: false,
@@ -1090,7 +1201,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setState(prev => {
             let newState = { ...prev };
 
-            const updateSourceUnit = (updater: (unit: Unit) => Unit) => {
+            const updateSourceUnit = (updater: (unit: Unit) => Unit | null) => {
                 newState.playerBoard = newState.playerBoard.map(u => u && u.id === source.id ? updater(u) : u);
                 newState.opponentBoard = newState.opponentBoard.map(u => u && u.id === source.id ? updater(u) : u);
                 newState.divineSlots = {
@@ -1098,6 +1209,147 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     opponent: newState.divineSlots.opponent.map(u => u && u.id === source.id ? updater(u) : u)
                 };
             };
+
+            const sourceIsPlayer = newState.playerBoard.some(u => u?.id === source.id) || newState.divineSlots.player.some(u => u?.id === source.id);
+            const updateTargetUnit = (targetUnitId: string, updater: (unit: Unit) => Unit | null) => {
+                newState.playerBoard = newState.playerBoard.map(u => u?.id === targetUnitId ? updater(u) : u);
+                newState.opponentBoard = newState.opponentBoard.map(u => u?.id === targetUnitId ? updater(u) : u);
+                newState.divineSlots = {
+                    player: newState.divineSlots.player.map(u => u?.id === targetUnitId ? updater(u) : u),
+                    opponent: newState.divineSlots.opponent.map(u => u?.id === targetUnitId ? updater(u) : u)
+                };
+            };
+            const findTargetUnit = (targetUnitId: string) =>
+                [...newState.playerBoard, ...newState.opponentBoard, ...newState.divineSlots.player, ...newState.divineSlots.opponent]
+                    .find((u): u is Unit => !!u && u.id === targetUnitId);
+
+            if (source.cardId === '26' && targetId) {
+                updateTargetUnit(targetId, () => null);
+                updateSourceUnit(unit => ({ ...unit, hasUsedAbility: true, isReady: false }));
+                addToast(`${source.name} eliminou o alvo com Kamehameha!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '33') {
+                const target = targetId ? findTargetUnit(targetId) : null;
+                const boostedAttack = source.currentAttack * 2;
+                const boostedHealth = source.currentHealth * 2;
+                if (target) {
+                    if (boostedAttack < target.currentHealth) {
+                        updateSourceUnit(() => null);
+                        if (sourceIsPlayer) newState.playerGraveyard = [...newState.playerGraveyard, source];
+                        else newState.opponentGraveyard = [...newState.opponentGraveyard, source];
+                        addToast(`${source.name} caiu no contra-ataque contra DEF maior!`, 'warning');
+                        return newState;
+                    }
+                    updateTargetUnit(targetId!, () => null);
+                    if (sourceIsPlayer) newState.opponentGraveyard = [...newState.opponentGraveyard, target];
+                    else newState.playerGraveyard = [...newState.playerGraveyard, target];
+                }
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    originalAttack: unit.originalAttack ?? unit.currentAttack,
+                    originalHealth: unit.originalHealth ?? unit.currentHealth,
+                    currentAttack: boostedAttack,
+                    currentHealth: boostedHealth,
+                    counters: { ...unit.counters, statusTurns: 3 },
+                    hasUsedAbility: true
+                }));
+                addToast(`${source.name} ativou Forma Black por 3 turnos!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '34' && targetId) {
+                updateTargetUnit(targetId, () => null);
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    hasUsedAbility: true,
+                    counters: { ...unit.counters, saitamaCooldown: 4 }
+                }));
+                addToast(`${source.name} destruiu o alvo com Soco Avassalador!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '51' && targetId) {
+                updateTargetUnit(targetId, unit => ({
+                    ...unit,
+                    isStunned: true,
+                    isSilenced: true,
+                    canAttack: false,
+                    counters: { ...unit.counters, statusTurns: 2 }
+                }));
+                updateSourceUnit(unit => ({ ...unit, hasUsedAbility: true }));
+                addToast('Magnetizado', 'warning');
+                return newState;
+            }
+
+            if (source.cardId === '90' && targetId) {
+                updateTargetUnit(targetId, unit => {
+                    const nextHealth = unit.currentHealth - 1200;
+                    return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth };
+                });
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    hasUsedAbility: true,
+                    counters: { ...unit.counters, lanternTurns: unit.counters?.lanternTurns || 3 }
+                }));
+                addToast('AT Extra causou 1200 de dano!', 'info');
+                return newState;
+            }
+
+            if (source.cardId === '93') {
+                const enemyGraveyard = sourceIsPlayer ? newState.opponentGraveyard : newState.playerGraveyard;
+                const stolen = enemyGraveyard[0];
+                if (!stolen) {
+                    addToast('Cemiterio inimigo vazio!', 'warning');
+                    return prev;
+                }
+                const revived: Unit = {
+                    ...stolen,
+                    cardId: stolen.cardId ?? stolen.id,
+                    currentHealth: stolen.def || 1,
+                    currentAttack: stolen.atk || 0,
+                    canAttack: false
+                };
+                const targetBoard = sourceIsPlayer ? newState.playerBoard : newState.opponentBoard;
+                const emptyIndex = targetBoard.findIndex(slot => slot === null);
+                if (emptyIndex === -1) {
+                    addToast('Sem espaco para roubar carta do cemiterio!', 'warning');
+                    return prev;
+                }
+                if (sourceIsPlayer) {
+                    newState.playerBoard = newState.playerBoard.map((unit, index) => index === emptyIndex ? revived : unit);
+                    newState.opponentGraveyard = newState.opponentGraveyard.slice(1);
+                } else {
+                    newState.opponentBoard = newState.opponentBoard.map((unit, index) => index === emptyIndex ? revived : unit);
+                    newState.playerGraveyard = newState.playerGraveyard.slice(1);
+                }
+                updateSourceUnit(unit => ({ ...unit, hasUsedAbility: true }));
+                addToast(`${source.name} roubou ${stolen.name} do cemiterio inimigo!`, 'info');
+                return newState;
+            }
+
+            if (source.cardId === '95' && targetId) {
+                const target = findTargetUnit(targetId);
+                if (!target) return prev;
+                const absorbedAttack = target.currentAttack;
+                updateTargetUnit(targetId, unit => ({
+                    ...unit,
+                    originalAttack: unit.originalAttack ?? unit.currentAttack,
+                    currentAttack: 0,
+                    isSilenced: true,
+                    counters: { ...unit.counters, statusTurns: 2 }
+                }));
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    originalHealth: unit.originalHealth ?? unit.currentHealth,
+                    currentHealth: unit.currentHealth + absorbedAttack,
+                    counters: { ...unit.counters, statusTurns: 2 },
+                    hasUsedAbility: true
+                }));
+                addToast(`${source.name} absorveu ${absorbedAttack} de AT!`, 'info');
+                return newState;
+            }
 
             if (source.cardId === '133' && effect.trigger === 'onPlay') {
                 updateSourceUnit(unit => ({
@@ -1762,7 +2014,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     target = prev.divineSlots.opponent.find(u => u?.id === targetId) || undefined;
                 }
 
-                if (!attacker || !target || !attacker.canAttack) return prev; // Re-validate inside chain execution
+                if (!attacker || !target || !attacker.canAttack || attacker.isStunned) return prev; // Re-validate inside chain execution
 
                 // Apply Auras for calculation
                 const effectiveAttacker = getUnitWithAuras(attacker, prev.playerBoard);
@@ -1893,6 +2145,17 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (!u) return null;
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null; // Destroyed
+                        if (result.defenderDies && u.cardId === '93') {
+                            const nextAttack = Math.floor(u.currentAttack * 1.2);
+                            return {
+                                ...u,
+                                originalAttack: u.originalAttack ?? u.currentAttack,
+                                currentAttack: nextAttack,
+                                counters: { ...u.counters, helaBuffTurns: 3 },
+                                remainingAttacks: attackerRemainingAttacks,
+                                canAttack: attackerRemainingAttacks > 0
+                            };
+                        }
                         return {
                             ...u,
                             remainingAttacks: attackerRemainingAttacks,
@@ -1921,6 +2184,17 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (!u) return null;
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null;
+                        if (result.defenderDies && u.cardId === '93') {
+                            const nextAttack = Math.floor(u.currentAttack * 1.2);
+                            return {
+                                ...u,
+                                originalAttack: u.originalAttack ?? u.currentAttack,
+                                currentAttack: nextAttack,
+                                counters: { ...u.counters, helaBuffTurns: 3 },
+                                remainingAttacks: attackerRemainingAttacks,
+                                canAttack: attackerRemainingAttacks > 0
+                            };
+                        }
                         return {
                             ...u,
                             remainingAttacks: attackerRemainingAttacks,
@@ -2170,6 +2444,15 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             return;
         }
 
+        if (source.cardId === '34') {
+            const target = [...state.opponentBoard, ...state.divineSlots.opponent, ...state.playerBoard, ...state.divineSlots.player]
+                .find(u => u?.id === targetId);
+            if (target && (((target as any).tier === 'Divino') || target.rarity === 'Supremo')) {
+                addToast('Soco ineficaz contra Divinos', 'warning');
+                return;
+            }
+        }
+
         // Close selection mode first to avoid loops
         setState(prev => ({ ...prev, targetSelectionMode: null }));
 
@@ -2195,6 +2478,16 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
         if (unit.isSilenced) {
             addToast('Esta unidade está com as habilidades anuladas!', 'warning');
+            return;
+        }
+
+        if (unit.cardId === '26' && unit.hasUsedAbility) {
+            addToast('Goku ja usou o Kamehameha nesta partida!', 'warning');
+            return;
+        }
+
+        if (unit.cardId === '34' && (unit.counters?.saitamaCooldown || 0) > 0) {
+            addToast(`Saitama em cooldown: ${unit.counters?.saitamaCooldown}T`, 'warning');
             return;
         }
 

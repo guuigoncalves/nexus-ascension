@@ -62,6 +62,67 @@ const SpecialAbilities: Record<string, AbilityFactory> = {
         description: 'Dobrar ATK próprio por 3 turnos',
         requiresTarget: false
     }],
+    '26': () => [{
+        trigger: 'onActivate',
+        type: 'destroy',
+        target: 'enemy',
+        value: 0,
+        description: 'Kamehameha: eliminar 1 oponente',
+        requiresTarget: true
+    }],
+    '33': () => [{
+        trigger: 'onActivate',
+        type: 'buffAtk',
+        target: 'enemy',
+        value: 2,
+        operation: 'multiply',
+        duration: 3,
+        description: 'Forma Black: dobra os pontos por 3 turnos e contra-ataca',
+        requiresTarget: true
+    }],
+    '34': () => [{
+        trigger: 'onActivate',
+        type: 'destroy',
+        target: 'enemy',
+        value: 0,
+        description: 'Soco Avassalador: destruir alvo nao Divino',
+        requiresTarget: true
+    }],
+    '51': () => [{
+        trigger: 'onActivate',
+        type: 'silence',
+        target: 'enemy',
+        value: 0,
+        duration: 2,
+        description: 'Campo magnetico: paralisa 2 adversarios por 2 turnos',
+        requiresTarget: true
+    }],
+    '90': () => [{
+        trigger: 'onActivate',
+        type: 'damage',
+        target: 'enemy',
+        value: 1200,
+        duration: 3,
+        description: 'AT Extra: dano manual de 1200 por 3 turnos',
+        requiresTarget: true
+    }],
+    '93': () => [{
+        trigger: 'onActivate',
+        type: 'summon',
+        target: 'self',
+        value: 1,
+        description: 'Roubar 1 carta do cemiterio inimigo com 1 sacrificio',
+        requiresTarget: false
+    }],
+    '95': () => [{
+        trigger: 'onActivate',
+        type: 'silence',
+        target: 'enemy',
+        value: 0,
+        duration: 2,
+        description: 'Absorver AT de 2 oponentes e anular efeitos por 2 turnos',
+        requiresTarget: true
+    }],
     '133': () => [{
         trigger: 'onPlay',
         type: 'buffAtk',

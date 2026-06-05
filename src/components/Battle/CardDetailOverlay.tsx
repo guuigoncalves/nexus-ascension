@@ -146,7 +146,7 @@ export const CardDetailOverlay: React.FC<CardDetailOverlayProps> = ({
                                 onClick={onActivateAbility}
                                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 py-2 rounded-lg text-white font-black text-[10px] uppercase tracking-wider shadow-lg border border-purple-400/30 flex items-center justify-center gap-2"
                             >
-                                <Zap size={12} /> {card.rarity === 'Efeito' ? 'Efeito' : 'Habilidade'}
+                                <Zap size={12} /> {card.cardId === '90' && (card.counters?.lanternTurns || 0) > 0 ? 'AT Extra' : card.rarity === 'Efeito' ? 'Efeito' : 'Habilidade'}
                             </button>
                         )}
 

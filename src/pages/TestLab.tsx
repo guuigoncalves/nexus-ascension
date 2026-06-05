@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCards } from '../contexts/CardContext';
 import { initialCards } from '../data/cards';
-import { ArrowLeft, ArrowRight, RotateCcw, Copy, Play, Swords, ChevronDown, ChevronUp, Search, Check, Dices, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCcw, RotateCw, Copy, Play, Swords, ChevronDown, ChevronUp, Search, Check, Dices, Trash2, X, Ghost } from 'lucide-react';
 import { parseAbilityToEffects, requiresTargetSelection, isOffensiveEffect } from '../utils/AbilityEngine';
+import { resolveCombat } from '../utils/combatEngine';
 
 interface TestUnit {
     id: string;
@@ -84,9 +85,15 @@ export const TestLab: React.FC = () => {
     const [currentTurn, setCurrentTurn] = useState<'player' | 'enemy'>('player');
     const [notes, setNotes] = useState<string>('');
     const [showResetMenu, setShowResetMenu] = useState(false);
+    const [showRandomMenu, setShowRandomMenu] = useState(false);
+    const [showSetupMenu, setShowSetupMenu] = useState(false);
     const [showCardSelector, setShowCardSelector] = useState(false);
     const [cardPopup, setCardPopup] = useState<{ unit: TestUnit, board: 'player' | 'enemy', index: number } | null>(null); // 🆕 Pop-up de efeito
     const [showCardList, setShowCardList] = useState(false); // 🆕 Overlay de lista de cartas
+    const [statusFilter, setStatusFilter] = useState<'all' | 'ok' | 'pending'>('all');
+    const [universeFilter, setUniverseFilter] = useState('all');
+    const [rarityFilter, setRarityFilter] = useState('all');
+    const [setupRotationIndex, setSetupRotationIndex] = useState(0);
     const [testedCards, setTestedCards] = useState<Set<string>>(() => {
         const saved = localStorage.getItem('lab_tested_cards');
         return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -97,10 +104,10 @@ export const TestLab: React.FC = () => {
     const [mysterioBlockPopup, setMysterioBlockPopup] = useState<{ attacker: TestUnit, onConfirm: () => void, onCancel: () => void } | null>(null); // 🎭 Popup customizado do Mysterio
     const [logsCollapsed, setLogsCollapsed] = useState(true); // 🆕 Estado de colapso dos logs (INICIA MINIMIZADO)
     const [reflectionMode, setReflectionMode] = useState<{ damage: number, sourceId: string, sourceBoard: 'player' | 'enemy' } | null>(null); // 🛡️ Modo de Reflexão do Capitão
-    const [rightTab, setRightTab] = useState<'habilidade' | 'log'>('habilidade'); // Aba do painel direito
     const [sideBarOnRight, setSideBarOnRight] = useState(true); // 🆕 Posicionamento da barra lateral
     // 🪦 GRAVEYARD SYSTEM
     const [showGraveyard, setShowGraveyard] = useState<'player' | 'enemy' | null>(null);
+    const [overGrave, setOverGrave] = useState<'player' | 'enemy' | null>(null);
     const [graveyardSelectorMode, setGraveyardSelectorMode] = useState<{
         title: string;
         filter?: (card: any) => boolean; // 🆕 Filtro opcional
@@ -108,6 +115,10 @@ export const TestLab: React.FC = () => {
     } | null>(null);
     const [interactionMode, setInteractionModeState] = useState<{ type: 'IDLE' } | { type: 'SELECTING_ABILITY_TARGET'; sourceId: string; abilityCallback: (id: string) => void }>({ type: 'IDLE' });
     const legacySetupIds = useMemo(() => ['28', '29', '35', '86', '87', '151'], []);
+    const greenStatusIds = useMemo(() => new Set([
+        '11', '13', '18', '25', '27', '28', '29', '31', '35', '36', '47', '51', '52', '53', '55', '56', '57', '59', '60', '86', '87', '91', '92', '94', '126', '127', '131', '132', '133', '136', '137', '138', '139', '144', '145', '146', '148', '150', '151', '152', '154', '157', '158', '159', '160', '161', '162', '163', '165', '172', '173', '175', '189', '190', '191', '192', '193', '194', '211', '212', '213', '214', 'TOK_SHENLONG'
+    ]), []);
+    const yellowStatusIds = useMemo(() => new Set(['63', '77', '164', '195']), []);
 
 
 
@@ -164,6 +175,51 @@ export const TestLab: React.FC = () => {
         '189', '190', '191', '192', '193', '194', '195', // Série Marvel
         '211', '212', '213', '214' // Outros
     ], []);
+
+    const universeOptions = useMemo(() => Array.from(new Set(cards.map(c => c.universe).filter(Boolean))).sort(), [cards]);
+    const rarityOptions = useMemo(() => Array.from(new Set(cards.map(c => c.rarity).filter(Boolean))).sort(), [cards]);
+    const normalizeSearch = useCallback((value: string) => (
+        value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    ), []);
+    const getCardStatus = useCallback((id: string) => {
+        if (greenStatusIds.has(id)) return 'green';
+        if (yellowStatusIds.has(id)) return 'yellow';
+        return 'red';
+    }, [greenStatusIds, yellowStatusIds]);
+    const getCardStatusClass = useCallback((id: string) => {
+        const status = getCardStatus(id);
+        if (status === 'green') return 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]';
+        if (status === 'yellow') return 'bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]';
+        return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]';
+    }, [getCardStatus]);
+
+    const inlineCardList = useMemo(() => {
+        const query = normalizeSearch(searchQuery).trim();
+        return cards.filter(card => {
+            const okStatus = getCardStatus(card.id) === 'green' || testedCards.has(card.id) || validatedCards.includes(card.id);
+            if (statusFilter === 'ok' && !okStatus) return false;
+            if (statusFilter === 'pending' && okStatus) return false;
+            if (universeFilter !== 'all' && card.universe !== universeFilter) return false;
+            if (rarityFilter !== 'all' && card.rarity !== rarityFilter) return false;
+            if (!query) return true;
+            return normalizeSearch(card.name).includes(query) || card.id.includes(query);
+        }).slice(0, 80);
+    }, [cards, getCardStatus, normalizeSearch, rarityFilter, searchQuery, statusFilter, testedCards, universeFilter, validatedCards]);
+
+    const playableInitialCards = useMemo(() => (
+        initialCards.filter(c => c.atk && Number(c.atk) > 0 && c.def && Number(c.def) > 0)
+    ), []);
+
+    const getPlayableCard = useCallback((id: string) => (
+        playableInitialCards.find(c => c.id === id) || cards.find(c => c.id === id && c.atk && Number(c.atk) > 0 && c.def && Number(c.def) > 0)
+    ), [cards, playableInitialCards]);
+
+    const getRandomPlayableCards = useCallback((count: number, excludedIds: string[] = []) => (
+        [...playableInitialCards]
+            .filter(c => !excludedIds.includes(c.id))
+            .sort(() => Math.random() - 0.5)
+            .slice(0, count)
+    ), [playableInitialCards]);
 
     const log = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -224,7 +280,7 @@ export const TestLab: React.FC = () => {
 
             // Setup Enemy Board: Asa Noturna (189) + 4 cartas "fracas" (DEF < 1000)
             const asaNoturna = cards.find(c => c.id === '189');
-            const weakCards = cards.filter(c => (c.def || 0) < 1000).sort(() => Math.random() - 0.5).slice(0, 4);
+            const weakCards = playableInitialCards.filter(c => (c.def || 0) < 1000).sort(() => Math.random() - 0.5).slice(0, 4);
             const newEnemyBoard = Array(14).fill(null);
 
             // Adicionar Asa Noturna no slot 0
@@ -240,7 +296,7 @@ export const TestLab: React.FC = () => {
 
             // Setup Player Hand (4 cartas)
             const newPlayerHand = Array(8).fill(null);
-            const randomCards = cards
+            const randomCards = playableInitialCards
                 .filter(c => !['213', '212', '211', '189', '190', '191', '192', '194'].includes(c.id))
                 .sort(() => Math.random() - 0.5)
                 .slice(0, 4);
@@ -251,7 +307,7 @@ export const TestLab: React.FC = () => {
 
             // Setup Enemy Hand (4 cartas)
             const newEnemyHand = Array(8).fill(null);
-            const enemyRandomCards = cards
+            const enemyRandomCards = playableInitialCards
                 .filter(c => !['213', '212', '211', '189', '190', '191', '192', '194'].includes(c.id))
                 .sort(() => Math.random() - 0.5)
                 .slice(0, 4);
@@ -269,7 +325,7 @@ export const TestLab: React.FC = () => {
             log(`✅ Enemy: 5 Soldados (Asa Noturna, Caveira, Duende, Rocket, Gavião)`);
             log(`✅ Hand: 4 cartas em cada mão`);
         }
-    }, [cards]); // Executa quando cards carrega
+    }, [cards, playableInitialCards]); // Executa quando cards carrega
 
     // 🐉 GATILHO AUTOMÁTICO SHENLONG
     useEffect(() => {
@@ -331,8 +387,8 @@ export const TestLab: React.FC = () => {
 
     // 🔍 Fuzzy Search Helper
     const fuzzyMatch = useCallback((query: string, target: string): boolean => {
-        query = query.toLowerCase().replace(/\s+/g, '');
-        target = target.toLowerCase().replace(/\s+/g, '');
+        query = normalizeSearch(query).replace(/\s+/g, '');
+        target = normalizeSearch(target).replace(/\s+/g, '');
 
         let queryIndex = 0;
         for (let i = 0; i < target.length && queryIndex < query.length; i++) {
@@ -341,13 +397,13 @@ export const TestLab: React.FC = () => {
             }
         }
         return queryIndex === query.length;
-    }, []);
+    }, [normalizeSearch]);
 
     // Filtered Cards for Search
     // Filtered Cards for Search
     const filteredCards = useMemo(() => {
         if (!searchQuery.trim()) return [];
-        const query = searchQuery.toLowerCase().trim();
+        const query = normalizeSearch(searchQuery).trim();
 
         // 🔍 BUSCA POR ESTATÍSTICAS (Formato: at500, df1000, pt500)
 
@@ -383,7 +439,7 @@ export const TestLab: React.FC = () => {
 
         return cards.filter(c => {
             // Verificar se contém palavras excluídas no nome
-            const nameMatch = c.name.toLowerCase();
+            const nameMatch = normalizeSearch(c.name);
 
             const isExcluded = excludeKeywords.some(keyword =>
                 nameMatch.includes(keyword)
@@ -394,7 +450,7 @@ export const TestLab: React.FC = () => {
             // Fuzzy search no nome ou busca exata no ID
             return fuzzyMatch(query, c.name) || c.id.toString().includes(query);
         }).slice(0, 5);
-    }, [cards, searchQuery, fuzzyMatch]);
+    }, [cards, searchQuery, fuzzyMatch, normalizeSearch]);
 
     const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
     const [selectedSearchItem, setSelectedSearchItem] = useState<string | null>(null); // Controls which search item shows buttons
@@ -430,12 +486,14 @@ export const TestLab: React.FC = () => {
             
             if (data.origin === 'HAND') {
                 const cardIndex = data.index;
-                const isPlayer = targetBoard === 'player';
-                const handArray = isPlayer ? playerHand : enemyHand;
+                const sourceBoard = data.boardType as 'player' | 'enemy';
+                const sourceIsPlayer = sourceBoard === 'player';
+                const targetIsPlayer = targetBoard === 'player';
+                const handArray = sourceIsPlayer ? playerHand : enemyHand;
                 const card = handArray[cardIndex];
                 if (!card) return;
 
-                const boardArray = isPlayer ? playerBoard : enemyBoard;
+                const boardArray = targetIsPlayer ? playerBoard : enemyBoard;
                 const existingUnit = boardArray[targetIndex];
 
                 const newHand = [...handArray];
@@ -454,30 +512,45 @@ export const TestLab: React.FC = () => {
                 };
                 newBoard[targetIndex] = newUnit;
 
-                if (isPlayer) {
+                if (sourceIsPlayer) {
                     setPlayerHand(newHand);
-                    setPlayerBoard(newBoard);
                 } else {
                     setEnemyHand(newHand);
+                }
+
+                if (targetIsPlayer) {
+                    setPlayerBoard(newBoard);
+                } else {
                     setEnemyBoard(newBoard);
                 }
                 log(`⬇️ Carta ${card.name} movida da mão para a arena (Swap).`);
             } else if (data.origin === 'ARENA') {
                 const sourceIndex = data.index;
-                const sourceBoard = data.boardType;
-                
-                if (sourceBoard !== targetBoard) return;
-                if (sourceIndex === targetIndex) return;
+                const sourceBoard = data.boardType as 'player' | 'enemy';
+                if (sourceBoard === targetBoard && sourceIndex === targetIndex) return;
 
-                const boardArray = targetBoard === 'player' ? playerBoard : enemyBoard;
-                const newBoard = [...boardArray];
-                
-                const temp = newBoard[sourceIndex];
-                newBoard[sourceIndex] = newBoard[targetIndex];
-                newBoard[targetIndex] = temp;
+                const sourceArray = sourceBoard === 'player' ? playerBoard : enemyBoard;
+                const targetArray = targetBoard === 'player' ? playerBoard : enemyBoard;
+                const sourceUnit = sourceArray[sourceIndex];
+                if (!sourceUnit) return;
 
-                if (targetBoard === 'player') setPlayerBoard(newBoard);
-                else setEnemyBoard(newBoard);
+                if (sourceBoard === targetBoard) {
+                    const newBoard = [...sourceArray];
+                    const temp = newBoard[sourceIndex];
+                    newBoard[sourceIndex] = newBoard[targetIndex];
+                    newBoard[targetIndex] = temp;
+                    if (targetBoard === 'player') setPlayerBoard(newBoard);
+                    else setEnemyBoard(newBoard);
+                } else {
+                    const newSourceBoard = [...sourceArray];
+                    const newTargetBoard = [...targetArray];
+                    newSourceBoard[sourceIndex] = newTargetBoard[targetIndex];
+                    newTargetBoard[targetIndex] = sourceUnit;
+                    if (sourceBoard === 'player') setPlayerBoard(newSourceBoard);
+                    else setEnemyBoard(newSourceBoard);
+                    if (targetBoard === 'player') setPlayerBoard(newTargetBoard);
+                    else setEnemyBoard(newTargetBoard);
+                }
                 
                 log(`🔄 Slot ${sourceIndex} e ${targetIndex} trocados na arena.`);
             }
@@ -494,15 +567,15 @@ export const TestLab: React.FC = () => {
             const data = JSON.parse(e.dataTransfer.getData('text/plain'));
             if (data.origin === 'ARENA') {
                 const sourceIndex = data.index;
-                const sourceBoard = data.boardType;
-                if (sourceBoard !== boardType) return;
+                const sourceBoard = data.boardType as 'player' | 'enemy';
                 
-                const isPlayer = boardType === 'player';
-                const boardArray = isPlayer ? playerBoard : enemyBoard;
+                const sourceIsPlayer = sourceBoard === 'player';
+                const targetIsPlayer = boardType === 'player';
+                const boardArray = sourceIsPlayer ? playerBoard : enemyBoard;
                 const unit = boardArray[sourceIndex];
                 if (!unit) return;
 
-                const handArray = isPlayer ? playerHand : enemyHand;
+                const handArray = targetIsPlayer ? playerHand : enemyHand;
                 const existingCard = handArray[targetIndex];
 
                 const newHand = [...handArray];
@@ -525,35 +598,93 @@ export const TestLab: React.FC = () => {
                     newBoard[sourceIndex] = null;
                 }
 
-                if (isPlayer) {
+                if (targetIsPlayer) {
                     setPlayerHand(newHand);
-                    setPlayerBoard(newBoard);
                 } else {
                     setEnemyHand(newHand);
+                }
+
+                if (sourceIsPlayer) {
+                    setPlayerBoard(newBoard);
+                } else {
                     setEnemyBoard(newBoard);
                 }
                 log(`⬆️ Carta ${unit.card.name} retornou para a mão (Swap).`);
             } else if (data.origin === 'HAND') {
                 const sourceIndex = data.index;
                 const sourceBoard = data.boardType;
-                if (sourceBoard !== boardType) return;
-                if (sourceIndex === targetIndex) return;
+                if (sourceBoard === boardType && sourceIndex === targetIndex) return;
 
-                const isPlayer = boardType === 'player';
-                const handArray = isPlayer ? playerHand : enemyHand;
-                const newHand = [...handArray];
+                const sourceHand = sourceBoard === 'player' ? playerHand : enemyHand;
+                const targetHand = boardType === 'player' ? playerHand : enemyHand;
+                if (sourceBoard === boardType) {
+                    const newHand = [...sourceHand];
+                    const temp = newHand[sourceIndex];
+                    newHand[sourceIndex] = newHand[targetIndex];
+                    newHand[targetIndex] = temp;
+                    if (boardType === 'player') setPlayerHand(newHand);
+                    else setEnemyHand(newHand);
+                } else {
+                    const newSourceHand = [...sourceHand];
+                    const newTargetHand = [...targetHand];
+                    newSourceHand[sourceIndex] = newTargetHand[targetIndex];
+                    newTargetHand[targetIndex] = sourceHand[sourceIndex];
+                    if (sourceBoard === 'player') setPlayerHand(newSourceHand);
+                    else setEnemyHand(newSourceHand);
+                    if (boardType === 'player') setPlayerHand(newTargetHand);
+                    else setEnemyHand(newTargetHand);
+                }
                 
-                const temp = newHand[sourceIndex];
-                newHand[sourceIndex] = newHand[targetIndex];
-                newHand[targetIndex] = temp;
-
-                if (isPlayer) setPlayerHand(newHand);
-                else setEnemyHand(newHand);
-                
-                log(`🔄 Slot da mão ${sourceIndex} e ${targetIndex} trocados.`);
+                log(`[SISTEMA] Slot da mao ${sourceIndex} e ${targetIndex} trocados.`);
             }
         } catch (err) {
-            console.error("Erro no drop da mão:", err);
+            console.error("Erro no drop da mao:", err);
+        }
+    };
+
+    const handleGraveDrop = (e: React.DragEvent, boardType: 'player' | 'enemy') => {
+        e.preventDefault();
+        if (attackMode || effectMode) return;
+
+        try {
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            if (data.origin === 'ARENA') {
+                const sourceIndex = data.index;
+                const sourceBoard = data.boardType as 'player' | 'enemy';
+                const sourceArray = sourceBoard === 'player' ? playerBoard : enemyBoard;
+                const unit = sourceArray[sourceIndex];
+                if (!unit) return;
+
+                const newBoard = [...sourceArray];
+                newBoard[sourceIndex] = null;
+                
+                if (sourceBoard === 'player') setPlayerBoard(newBoard);
+                else setEnemyBoard(newBoard);
+
+                if (boardType === 'player') setPlayerGraveyard(prev => [...prev, unit.card]);
+                else setEnemyGraveyard(prev => [...prev, unit.card]);
+
+                log(`[CEMITERIO] ${unit.card.name} movido para o cemiterio (${boardType === 'player' ? 'P1' : 'P2'}).`);
+            } else if (data.origin === 'HAND') {
+                const sourceIndex = data.index;
+                const sourceBoard = data.boardType as 'player' | 'enemy';
+                const handArray = sourceBoard === 'player' ? playerHand : enemyHand;
+                const card = handArray[sourceIndex];
+                if (!card) return;
+
+                const newHand = [...handArray];
+                newHand[sourceIndex] = null;
+
+                if (sourceBoard === 'player') setPlayerHand(newHand);
+                else setEnemyHand(newHand);
+
+                if (boardType === 'player') setPlayerGraveyard(prev => [...prev, card]);
+                else setEnemyGraveyard(prev => [...prev, card]);
+
+                log(`[CEMITERIO] ${card.name} descartado no cemiterio (${boardType === 'player' ? 'P1' : 'P2'}).`);
+            }
+        } catch (err) {
+            console.error("Error in grave drop:", err);
         }
     };
 
@@ -917,44 +1048,84 @@ export const TestLab: React.FC = () => {
         const newPBoard = Array(14).fill(null);
         const newEBoard = Array(14).fill(null);
         const newPlayerHand = Array(8).fill(null);
-
-        const setupIds = ['145', '164', '165', '195', '127', '53', '150', '92', '47'];
-        setupIds.forEach((id, index) => {
-            const card = cards.find(c => c.id === id) || initialCards.find(c => c.id === id);
+        const setupIds = ['26', '33', '34', '51', '90', '93', '95'];
+        const setupCards = setupIds
+            .map(id => initialCards.find(card => card.id === id))
+            .filter((card): card is NonNullable<typeof card> => !!card);
+        setupCards.forEach((card, index) => {
             if (!card) return;
-            if (index < 8) {
-                newPBoard[index] = createUnit(card);
-            } else {
-                newPlayerHand[index - 8] = card;
-            }
+            newPBoard[index] = createUnit(card);
         });
 
-        for (let index = 0; index < 8; index++) {
-            const stat = Math.max(1, Math.floor(Math.random() * 2500));
-            const dummyCard = {
-                id: `dummy_${index + 1}`,
-                name: `Guerreiro Teste ${index + 1}`,
-                atk: stat,
-                def: stat,
-                hasEffect: false,
-                description: ''
-            };
-            newEBoard[index] = createUnit(dummyCard);
-        }
+        setupCards.forEach((card, index) => {
+            newEBoard[index] = createUnit(card);
+        });
+
+        setPlayerBoard(newPBoard);
+        setEnemyBoard(newEBoard);
 
         setPlayerBoard(newPBoard);
         setEnemyBoard(newEBoard);
         setPlayerHand(newPlayerHand);
         setEnemyHand(Array(8).fill(null));
-        setPlayerGraveyard([]);
-        setEnemyGraveyard([]);
+        // setPlayerGraveyard(newPlayerGraveyard); // Preservado V4.8
+        // setEnemyGraveyard(newEnemyGraveyard); // Preservado V4.8
         setSelectedCard(null);
         setSelectedSlot(null);
         setAttackMode(null);
         setEffectMode(null);
+        setShowSetupMenu(false);
         saveHistory(newPBoard, newEBoard, newPlayerHand);
         log('🚀 SETUP INICIADO!');
-    }, [cards, log, saveHistory]);
+    }, [log, saveHistory]);
+
+    const handleNormalSetup = useCallback(() => {
+        const playerSetupIds = ['25', '52'];
+        const enemyRarityOrder = ['Supremo', 'Destruidor', 'Lendário', 'Titã', 'Elite', 'Veterano', 'Gladiador'];
+        const newPlayerBoard = Array(14).fill(null);
+        const newEnemyBoard = Array(14).fill(null);
+        const emptyHand = Array(8).fill(null);
+
+        playerSetupIds.forEach((id, index) => {
+            const card = initialCards.find(c => c.id === id);
+            if (card) {
+                newPlayerBoard[index] = createUnit(card);
+            }
+        });
+
+        enemyRarityOrder.forEach((rarity, rarityIndex) => {
+            const rarityCards = initialCards.filter(card =>
+                card.rarity === rarity &&
+                card.atk &&
+                Number(card.atk) > 0 &&
+                card.def &&
+                Number(card.def) > 0 &&
+                !card.id.startsWith('TOK_')
+            );
+            const start = rarityCards.length > 0 ? (setupRotationIndex * 2) % rarityCards.length : 0;
+            const rotatedCards = [...rarityCards.slice(start), ...rarityCards.slice(0, start)].slice(0, 2);
+            rotatedCards.forEach((card, cardIndex) => {
+                newEnemyBoard[(rarityIndex * 2) + cardIndex] = createUnit(card);
+            });
+        });
+
+        setPlayerBoard(newPlayerBoard);
+        setEnemyBoard(newEnemyBoard);
+        setPlayerHand(emptyHand);
+        setEnemyHand(emptyHand);
+        // setPlayerGraveyard([]); // Preservado V4.8
+        // setEnemyGraveyard([]); // Preservado V4.8
+        setPlayerHP(8000);
+        setEnemyHP(8000);
+        setSelectedCard(null);
+        setSelectedSlot(null);
+        setAttackMode(null);
+        setEffectMode(null);
+        setShowSetupMenu(false);
+        setSetupRotationIndex(prev => prev + 1);
+        saveHistory(newPlayerBoard, newEnemyBoard, emptyHand);
+        log('[SETUP] Normal iniciado.');
+    }, [log, saveHistory, setupRotationIndex]);
 
     // 🔄 SETUP DA ROTAÇÃO DO LABORATÓRIO
     const setupLabRotation = useCallback(() => {
@@ -1019,6 +1190,12 @@ export const TestLab: React.FC = () => {
                     updated.customState = {
                         ...(updated.customState || {}),
                         cooldown: updated.customState.cooldown - 1
+                    };
+                }
+                if (updated.customState?.lanternAttackedThisTurn) {
+                    updated.customState = {
+                        ...(updated.customState || {}),
+                        lanternAttackedThisTurn: false
                     };
                 }
                 if (updated.abilityCooldown && updated.abilityCooldown > 0) {
@@ -1093,6 +1270,7 @@ export const TestLab: React.FC = () => {
                         updated = {
                             ...updated,
                             isStunned: false,
+                            isSilenced: false,
                             isIntangible: false
                         };
 
@@ -1172,6 +1350,31 @@ export const TestLab: React.FC = () => {
                 newPlayerBoard = result.board;
                 if (result.revealed) log(`[NEJI] Carta do oponente revelada: ${result.revealed.card.name}.`);
             }
+        }
+
+        const autoSource = [...newPlayerBoard, ...newEnemyBoard].find(unit =>
+            unit?.customState?.autoDestroyTurns || unit?.customState?.delayedDamage
+        );
+        if (autoSource?.customState?.autoDestroyTurns) {
+            const sourceIsPlayer = newPlayerBoard.some(unit => unit?.id === autoSource.id);
+            setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: autoSource.id, abilityCallback: (targetId) => {
+                const setter = sourceIsPlayer ? setEnemyBoard : setPlayerBoard;
+                setter(prev => prev.map(unit => unit?.id === targetId ? null : unit));
+                setInteractionMode({ type: 'IDLE' });
+            }});
+        } else if (autoSource?.customState?.delayedDamage) {
+            const sourceIsPlayer = newPlayerBoard.some(unit => unit?.id === autoSource.id);
+            setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: autoSource.id, abilityCallback: (targetId) => {
+                const setter = sourceIsPlayer ? setEnemyBoard : setPlayerBoard;
+                setter(prev => prev.map(unit => {
+                    if (unit?.id !== targetId) return unit;
+                    const nextHealth = unit.currentHealth - autoSource.customState.delayedDamage;
+                    return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+                }));
+                const sourceSetter = sourceIsPlayer ? setPlayerBoard : setEnemyBoard;
+                sourceSetter(prev => prev.map(unit => unit?.id === autoSource.id ? { ...unit, customState: { ...(unit.customState || {}), delayedDamage: undefined } } : unit));
+                setInteractionMode({ type: 'IDLE' });
+            }});
         }
 
         setPlayerBoard(newPlayerBoard);
@@ -1614,17 +1817,23 @@ export const TestLab: React.FC = () => {
             }
         }
 
-        // 🛡️ VERIFICAÇÃO DE IMUNIDADE (Asa Noturna)
-        // Se o DEFENSOR é imune, bloqueia o ataque
-        if (defender.statusEffect === 'immune') {
-            log(`🛡️ ${defender.card.name} está IMUNE! Ataque de ${attacker.card.name} bloqueado completamente.`);
+        // Imunidade bloqueia dano recebido, mas nao anula recuo do atacante fraco.
+        const defenderBlocksCombat = defender.isImmune || defender.statusEffect === 'immune';
+        if (defenderBlocksCombat) {
+            if (attacker.currentAttack < defender.currentHealth) {
+                const nextAttackerBoard = attackerBoard.map(unit => unit?.id === attacker.id ? null : unit);
+                if (attackMode.attackerBoard === 'player') setPlayerBoard(nextAttackerBoard); else setEnemyBoard(nextAttackerBoard);
+                if (attackMode.attackerBoard === 'player') setPlayerGraveyard(prev => [...prev, attacker.card]); else setEnemyGraveyard(prev => [...prev, attacker.card]);
+                log(`[B-76] ${defender.card.name} esta imune ao dano, mas ${attacker.card.name} morreu no recuo.`);
+                console.log('[B-76] Recuo processado contra defensor imune', { attackerId: attacker.card.id, defenderId: defender.card.id });
+            } else {
+                log(`[B-26] ${defender.card.name} esquivou do ataque de ${attacker.card.name}.`);
+                console.log('[B-26] Imunidade real bloqueou ataque', { attackerId: attacker.card.id, defenderId: defender.card.id });
+            }
             setAttackMode(null);
             setSelectedSlot(null);
             return;
         }
-
-        // Se o ATACANTE é imune, ele não recebe dano de contra-ataque
-        const attackerIsImmune = attacker.statusEffect === 'immune';
 
         // 🧶 HOMEM ELÁSTICO (ID 162) - Interceptação
         // Verificar se há algum Homem Elástico protegendo o alvo (defender)
@@ -1717,12 +1926,115 @@ export const TestLab: React.FC = () => {
             }
         }
 
-        const attackerDamage = attacker.currentAttack; // ATK do atacante
+        if (attacker.customState?.ultraEgoActive) {
+            const nextDefBoard = targetBoard === 'player' ? [...playerBoard] : [...enemyBoard];
+            nextDefBoard[targetIndex] = null;
+            if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
+            setAttackMode(null);
+            setSelectedSlot(null);
+            log('[UE] Alvo eliminado independente de AT/DF.');
+            return;
+        }
+
+        if (defender.customState?.freezaStance) {
+            const wantsToCounter = window.confirm(`[FREEZA BLACK] Você foi atacado! Deseja usar o Contra-Ataque? Se cancelar, poderá usar no próximo ataque recebido.`);
+            if (wantsToCounter) {
+                const nextDefBoard = defenderBoardArray.map(unit => unit?.id === defender.id ? {
+                    ...unit,
+                    customState: {
+                        ...(unit.customState || {}),
+                        freezaStance: false
+                    },
+                    statusText: 'COUNTER'
+                } : unit);
+                if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: defender.id, abilityCallback: (targetId) => {
+                    const setCounterBoard = targetBoard === 'player' ? setEnemyBoard : setPlayerBoard;
+                    const setFreezaBoard = targetBoard === 'player' ? setPlayerBoard : setEnemyBoard;
+                    setCounterBoard(prev => prev.map(unit => {
+                        if (unit?.id !== targetId) return unit;
+                        if (defender.currentAttack < unit.currentHealth) {
+                            log(`[FREEZA] Oponente defendeu! Freeza morreu e causou ${defender.currentAttack} de dano.`);
+                            setFreezaBoard(fPrev => fPrev.map(fUnit => fUnit?.id === defender.id ? null : fUnit));
+                            const nextHealth = unit.currentHealth - defender.currentAttack;
+                            return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+                        } else {
+                            log(`[FREEZA] Contra-ataque mortal! Alvo destruído.`);
+                            return null;
+                        }
+                    }));
+                    setInteractionMode({ type: 'IDLE' });
+                } });
+                setAttackMode(null);
+                setSelectedSlot(null);
+                log('[FREEZA] Dano do ataque original ignorado. Selecione o alvo do contra-ataque.');
+                return;
+            } else {
+                log('[FREEZA] Contra-ataque adiado. O ataque será recebido normalmente.');
+            }
+        }
+
+        if (defender.customState?.hitStance && defender.customState?.hitCharges && defender.customState.hitCharges > 0) {
+            const nextDefBoard = defenderBoardArray.map(unit => unit?.id === defender.id ? {
+                ...unit,
+                charges: Math.max(0, (unit.charges || 1) - 1),
+                customState: {
+                    ...(unit.customState || {}),
+                    hitStance: false,
+                    hitCharges: Math.max(0, unit.customState.hitCharges - 1)
+                },
+                statusText: unit.customState.hitCharges - 1 > 0 ? `HIT ${unit.customState.hitCharges - 1}` : undefined
+            } : unit);
+            const nextAttBoard = attackerBoard.map(unit => unit?.id === attacker.id ? {
+                ...unit,
+                isStunned: true,
+                effectTurns: 1,
+                statusText: 'STUN 1T'
+            } : unit);
+            if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
+            if (attackMode.attackerBoard === 'player') setPlayerBoard(nextAttBoard); else setEnemyBoard(nextAttBoard);
+            setAttackMode(null);
+            setSelectedSlot(null);
+            log('[HIT] Ataque cancelado e atacante atordoado.');
+            return;
+        }
+
+        if (defender.customState?.ultraEgoActive) {
+            const nextAttBoard = attackerBoard.map(unit => unit?.id === attacker.id ? null : unit);
+            if (attackMode.attackerBoard === 'player') setPlayerBoard(nextAttBoard); else setEnemyBoard(nextAttBoard);
+            setAttackMode(null);
+            setSelectedSlot(null);
+            log('[UE] Dano cancelado e contra-ataque total.');
+            return;
+        }
+
+        if (defender.customState?.moroReactive) {
+            const nextDefBoard = defenderBoardArray.map(unit => unit?.id === defender.id ? {
+                ...unit,
+                currentHealth: unit.currentHealth + attacker.currentAttack,
+                card: { ...unit.card, def: unit.currentHealth + attacker.currentAttack }
+            } : unit);
+            if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
+        }
+
+        let attackerDamage = attacker.currentAttack; // ATK do atacante
+        if (defender.customState?.damageReduction) {
+            attackerDamage = Math.floor(attackerDamage * defender.customState.damageReduction);
+        }
         const defenderDefense = defender.currentHealth; // DEF do defensor (currentHealth = DEF)
-        const isDefenderKilled = attackerDamage > defenderDefense;
+        const combatResult = resolveCombat(attackerDamage, defenderDefense, 0);
+        const isEqualCombat = attackerDamage === defenderDefense;
+        const isDefenderKilled = isEqualCombat ? false : combatResult.defenderDies;
         // ✅ FIX V4.8: Atacante NUNCA morre em combate normal.
         // Apenas habilidades de Reflexo/Espinhos causam dano de volta (já tratadas acima com return).
-        const isAttackerKilled = attackerDamage < defenderDefense;
+        const isAttackerKilled = isEqualCombat ? false : combatResult.attackerDies;
+        const nextDefenderHealth = isEqualCombat ? defenderDefense : combatResult.newDefenderDef;
+        if (isAttackerKilled && attacker.card.id === '33') {
+            console.log('[B-33] Freeza Black morreu ao atacar DEF maior', { attackerDamage, defenderDefense });
+        }
+        if (isAttackerKilled && defender.card.id === '76') {
+            console.log('[B-76] Atacante morreu ao bater na DEF do Naruto', { attackerDamage, defenderDefense });
+        }
 
         let newPBoard = [...playerBoard];
         let newEBoard = [...enemyBoard];
@@ -1792,12 +2104,49 @@ export const TestLab: React.FC = () => {
             // Atacante (Player)
             newPBoard = newPBoard.map((u, i) => (u?.id === attacker.id ? (isAttackerKilled ? processDeath(u, 'player', i) : u) : u));
             // Defensor (Enemy)
-            newEBoard = newEBoard.map((u, i) => (i === targetIndex ? (isDefenderKilled ? processDeath(u!, 'enemy', i) : (u ? { ...u, currentHealth: u.currentHealth - attackerDamage } : null)) : u));
+            newEBoard = newEBoard.map((u, i) => (i === targetIndex ? (isDefenderKilled ? processDeath(u!, 'enemy', i) : (u ? { ...u, currentHealth: nextDefenderHealth, card: { ...u.card, def: nextDefenderHealth } } : null)) : u));
         } else {
             // Atacante (Enemy)
             newEBoard = newEBoard.map((u, i) => (u?.id === attacker.id ? (isAttackerKilled ? processDeath(u, 'enemy', i) : u) : u));
             // Defensor (Player)
-            newPBoard = newPBoard.map((u, i) => (i === targetIndex ? (isDefenderKilled ? processDeath(u!, 'player', i) : (u ? { ...u, currentHealth: u.currentHealth - attackerDamage } : null)) : u));
+            newPBoard = newPBoard.map((u, i) => (i === targetIndex ? (isDefenderKilled ? processDeath(u!, 'player', i) : (u ? { ...u, currentHealth: nextDefenderHealth, card: { ...u.card, def: nextDefenderHealth } } : null)) : u));
+        }
+        if (attacker.customState?.attackCostDef) {
+            const boardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
+            const nextBoard = boardArr.map(unit => {
+                if (unit?.id !== attacker.id) return unit;
+                const nextHealth = unit.currentHealth - attacker.customState.attackCostDef;
+                return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+            });
+            if (attackMode.attackerBoard === 'player') newPBoard = nextBoard; else newEBoard = nextBoard;
+        }
+        if (!isDefenderKilled && defender.customState?.wolverineSurvive) {
+            const boardArr = targetBoard === 'player' ? newPBoard : newEBoard;
+            const nextBoard = boardArr.map(unit => unit?.id === defender.id ? {
+                ...unit,
+                currentHealth: Math.floor(unit.currentHealth * 1.5),
+                card: { ...unit.card, def: Math.floor(unit.currentHealth * 1.5) }
+            } : unit);
+            if (targetBoard === 'player') newPBoard = nextBoard; else newEBoard = nextBoard;
+        }
+        if (defender.customState?.counterOnDamage) {
+            const boardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
+            const nextBoard = boardArr.map(unit => {
+                if (unit?.id !== attacker.id) return unit;
+                const nextHealth = unit.currentHealth - defender.currentAttack;
+                return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+            });
+            if (attackMode.attackerBoard === 'player') newPBoard = nextBoard; else newEBoard = nextBoard;
+        }
+        if (defender.customState?.reflectPlus) {
+            const reflectDamage = attackerDamage + defender.customState.reflectPlus;
+            const boardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
+            const nextBoard = boardArr.map(unit => {
+                if (unit?.id !== attacker.id) return unit;
+                const nextHealth = unit.currentHealth - reflectDamage;
+                return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+            });
+            if (attackMode.attackerBoard === 'player') newPBoard = nextBoard; else newEBoard = nextBoard;
         }
         if (isAttackerKilled) {
             if (attackMode.attackerBoard === 'player') {
@@ -1905,6 +2254,25 @@ export const TestLab: React.FC = () => {
                 attackerBoardArr[attIdx] = attUnit;
                 if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
                 log(`[PANTERA] Pantera Negra derrotou um oponente! +500 DEF permanente.`);
+            }
+        }
+
+        if (isDefenderKilled && attacker.card.id === '93') {
+            const attackerBoardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
+            const attIdx = attackerBoardArr.findIndex(u => u?.id === attacker.id);
+            if (attIdx !== -1 && attackerBoardArr[attIdx]) {
+                const attUnit = { ...attackerBoardArr[attIdx]! };
+                const nextAttack = Math.floor(attUnit.currentAttack * 1.2);
+                attackerBoardArr[attIdx] = {
+                    ...attUnit,
+                    originalAttack: attUnit.originalAttack ?? attUnit.currentAttack,
+                    currentAttack: nextAttack,
+                    card: { ...attUnit.card, atk: nextAttack },
+                    effectTurns: 3,
+                    statusText: 'HELA +20% AT'
+                };
+                if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
+                console.log('[B-93] Hela ganhou +20% AT por 3T ao derrotar inimigo', { nextAttack });
             }
         }
 
@@ -2055,9 +2423,10 @@ export const TestLab: React.FC = () => {
                 const newBoard = [...targetBoardArray];
                 const damagedUnit = { ...targetUnit };
                 const dmg = effectMode.damage || sourceUnit.currentAttack;
+                const vespaDies = sourceUnit.card.id === '145' && dmg < targetUnit.currentHealth;
 
                 damagedUnit.currentHealth -= dmg;
-                damagedUnit.card.def = damagedUnit.currentHealth;
+                damagedUnit.card = { ...damagedUnit.card, def: damagedUnit.currentHealth };
 
                 // Processar morte simples (sem triggers complexos por enquanto)
                 if (damagedUnit.currentHealth <= 0) {
@@ -2068,6 +2437,14 @@ export const TestLab: React.FC = () => {
                     log(`⚔️ Zoro cortou ${damagedUnit.card.name}! (-${dmg})`);
                 }
                 setTargetBoard(newBoard);
+
+                if (vespaDies) {
+                    const updatedSourceBoard = sourceBoard.map(unit => unit?.id === sourceUnit.id ? null : unit);
+                    if (effectMode.sourceBoard === 'player') setPlayerBoard(updatedSourceBoard); else setEnemyBoard(updatedSourceBoard);
+                    setEffectMode(null);
+                    log('[VESPA] Vespa caiu ao atacar DEF maior. Combo interrompido.');
+                    return;
+                }
 
                 const remaining = (effectMode.targetsLeft || 1) - 1;
                 if (remaining > 0) {
@@ -2175,6 +2552,35 @@ export const TestLab: React.FC = () => {
         }
 
         // 🃏 CORINGA (ID 212) - Roubar carta da mão do oponente
+        const isSourcePlayer = playerBoard.some(u => u?.id === source!.id);
+        const sourceBoardState = isSourcePlayer ? playerBoard : enemyBoard;
+        const opponentBoardState = isSourcePlayer ? enemyBoard : playerBoard;
+        const setSourceBoardState = isSourcePlayer ? setPlayerBoard : setEnemyBoard;
+        const setOpponentBoardState = isSourcePlayer ? setEnemyBoard : setPlayerBoard;
+        if (opponentBoardState.some(unit => unit?.customState?.elmoNabuActive)) {
+            log('Bloqueado por Nabu');
+            setEffectMode(null);
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+        const updateSourceUnit = (updater: (unit: TestUnit) => TestUnit) => {
+            setSourceBoardState(sourceBoardState.map(unit => unit?.id === source!.id ? updater(unit) : unit));
+        };
+        const removeOpponentById = (targetId: string) => {
+            setOpponentBoardState(opponentBoardState.map(unit => unit?.id === targetId ? null : unit));
+        };
+        const damageOpponentById = (targetId: string, damage: number) => {
+            setOpponentBoardState(opponentBoardState.map(unit => {
+                if (!unit || unit.id !== targetId) return unit;
+                const nextHealth = unit.currentHealth - damage;
+                return nextHealth <= 0 ? null : {
+                    ...unit,
+                    currentHealth: nextHealth,
+                    card: { ...unit.card, def: nextHealth }
+                };
+            }));
+        };
+
         if (source.card.id === '212') {
             const newEnemyHand = [...enemyHand];
             const newPlayerHand = [...playerHand];
@@ -2567,6 +2973,203 @@ export const TestLab: React.FC = () => {
         }
 
         // 🕸️ HOMEM-ARANHA (ID 139) - Stun Global + Buff
+        const block6Ids = ['25', '26', '27', '31', '33', '34', '36', '49', '51', '52', '55', '56', '57', '59', '60', '63', '76', '77', '90', '91', '93', '94', '95', '128'];
+        if (block6Ids.includes(source.card.id)) {
+            const id = source.card.id;
+            const close = () => {};
+            if (id === '25') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: unit.currentAttack * 2, isImmune: true, effectTurns: 3, statusText: 'PRIME 3T', customState: { ...(unit.customState || {}), bypassShields: true }, card: { ...unit.card, atk: unit.currentAttack * 2 } })); close(); return; }
+            if (id === '26') {
+                updateSourceUnit(unit => ({ ...unit, isReady: true, isImmune: true, statusEffect: 'immune', effectTurns: 3, statusText: 'UI 3T', customState: { ...(unit.customState || {}), uiKamehamehaActive: true } }));
+                console.log('[B-26] Goku UI ativou imunidade real', { sourceId: source.card.id });
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
+                    setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId && !unit.isImmune && unit.statusEffect !== 'immune' ? null : unit));
+                    setInteractionMode({ type: 'IDLE' });
+                } });
+                close(); return;
+            }
+            if (id === '27') { updateSourceUnit(unit => ({ ...unit, effectTurns: 2, statusText: 'UE 2T', customState: { ...(unit.customState || {}), ultraEgoActive: true } })); close(); return; }
+            if (id === '31') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), effectTurns: 3, statusText: 'JIREN 3T', customState: { ...(unit.customState || {}), damageReduction: 0.5 }, card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); setOpponentBoardState(opponentBoardState.map(unit => unit ? { ...unit, isSilenced: true, effectTurns: 3, statusText: 'SILENCED' } : unit)); close(); return; }
+            if (id === '33') {
+                updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, originalHealth: unit.originalHealth ?? unit.currentHealth, currentAttack: unit.currentAttack * 2, currentHealth: unit.currentHealth * 2, effectTurns: 3, statusText: 'FREEZA STANCE', customState: { ...(unit.customState || {}), freezaStance: true }, card: { ...unit.card, atk: unit.currentAttack * 2, def: unit.currentHealth * 2 } })); close(); return;
+            }
+            if (id === '34') {
+                if (source.abilityCooldown && source.abilityCooldown > 0) { log('[SAITAMA] Cooldown ativo.'); close(); return; }
+                updateSourceUnit(unit => ({ ...unit, abilityCooldown: 4, statusText: 'CD 4T' }));
+                const selectSaitamaTarget = (targetId: string) => {
+                    const target = opponentBoardState.find(unit => unit?.id === targetId);
+                    if (target && (((target.card as any).tier === 'divino') || (target.card as any).tier === 'Divino' || target.card.rarity === 'Supremo')) {
+                        log('Ineficaz');
+                        return;
+                    }
+                    removeOpponentById(targetId);
+                    console.log('[B-34] Saitama eliminou alvo', { targetId });
+                    setInteractionMode({ type: 'IDLE' });
+                };
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectSaitamaTarget });
+                close(); return;
+            }
+            if (id === '36') {
+                const selectedTargets: string[] = [];
+                const selectThorTarget = (targetId: string) => {
+                    if (!selectedTargets.includes(targetId)) selectedTargets.push(targetId);
+                    setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId ? null : unit));
+                    console.log('[B-36] Thor eliminou alvo imediatamente', { targetId });
+                    if (selectedTargets.length >= 3) {
+                        setOpponentBoardState(prev => prev.map(unit => {
+                            if (!unit) return unit;
+                            return { ...unit, isSilenced: true, effectTurns: 2, statusText: 'SILENCED' };
+                        }));
+                        setInteractionMode({ type: 'IDLE' });
+                    } else {
+                        setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectThorTarget }), 0);
+                        log(`[THOR] Selecione mais ${3 - selectedTargets.length} alvo(s).`);
+                    }
+                };
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectThorTarget });
+                close(); return;
+            }
+            if (id === '49') {
+                const selectedTargets: string[] = [];
+                let firstTargetAtk = 0;
+                const selectMarvelTarget = (targetId: string) => {
+                    const target = opponentBoardState.find(unit => unit?.id === targetId);
+                    if (!target || (target.card.level && target.card.level > 7)) {
+                        log('Alvo inválido! Somente nível 7 ou inferior.');
+                        setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMarvelTarget }), 0);
+                        return;
+                    }
+                    if (!selectedTargets.includes(targetId)) {
+                        selectedTargets.push(targetId);
+                        if (selectedTargets.length === 1) firstTargetAtk = target.card.atk || target.currentAttack;
+                    }
+                    setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId ? null : unit));
+                    if (selectedTargets.length >= 3 || opponentBoardState.filter(u => u && (!u.card.level || u.card.level <= 7) && !selectedTargets.includes(u.id)).length === 0) {
+                        updateSourceUnit(unit => ({ ...unit, currentAttack: unit.currentAttack + firstTargetAtk, card: { ...unit.card, atk: unit.currentAttack + firstTargetAtk } }));
+                        setInteractionMode({ type: 'IDLE' });
+                        log(`[CAPITÃ] Explosão de Fótons! Eliminou alvos e ganhou +${firstTargetAtk} AT.`);
+                    } else {
+                        setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMarvelTarget }), 0);
+                        log(`[CAPITÃ] Selecione mais ${3 - selectedTargets.length} alvo(s) ou cancele.`);
+                    }
+                };
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMarvelTarget });
+                close(); return;
+            }
+            if (id === '51') {
+                const cyberIds = ['89', '61', '62', '65'];
+                setOpponentBoardState(prev => prev.map(unit => unit && cyberIds.includes(unit.card.id) ? null : unit));
+                const selectedTargets: string[] = [];
+                const selectMagnetoTarget = (targetId: string) => {
+                    if (!selectedTargets.includes(targetId)) selectedTargets.push(targetId);
+                    setOpponentBoardState(prev => prev.map(unit => unit && unit.id === targetId ? { ...unit, isStunned: true, effectTurns: 2, statusText: 'Magnetizado' } : unit));
+                    console.log('[B-51] Magneto paralisou alvo imediatamente', { targetId });
+                    if (selectedTargets.length >= 2) {
+                        setInteractionMode({ type: 'IDLE' });
+                    } else {
+                        setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMagnetoTarget }), 0);
+                            log('Magnetizado. Selecione mais 1 alvo.');
+                    }
+                };
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMagnetoTarget });
+                close(); return;
+            }
+            if (id === '52') {
+                setSourceBoardState(sourceBoardState.map(unit => {
+                    if (!unit) return unit;
+                    if (unit.id === source!.id) {
+                        return { ...unit, originalHealth: unit.originalHealth ?? unit.currentHealth, currentHealth: unit.currentHealth * 2, effectTurns: 3, statusText: 'NABU 3T', customState: { ...(unit.customState || {}), elmoNabuActive: true }, card: { ...unit.card, def: unit.currentHealth * 2 } };
+                    } else {
+                        return { ...unit, originalHealth: unit.originalHealth ?? unit.currentHealth, currentHealth: unit.currentHealth * 2, statusText: 'NABU', card: { ...unit.card, def: unit.currentHealth * 2 } };
+                    }
+                }));
+                close(); return;
+            }
+            if (id === '55') { updateSourceUnit(unit => ({ ...unit, effectTurns: 3, statusText: 'MORO 3T', customState: { ...(unit.customState || {}), moroReactive: true } })); setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { const target = opponentBoardState.find(unit => unit?.id === targetId); if (target) { updateSourceUnit(unit => ({ ...unit, currentAttack: unit.currentAttack + target.currentAttack, card: { ...unit.card, atk: unit.currentAttack + target.currentAttack } })); setOpponentBoardState(opponentBoardState.map(unit => unit?.id === targetId ? { ...unit, currentAttack: 0, card: { ...unit.card, atk: 0 } } : unit)); } setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
+            if (id === '56') {
+                const charges = source.customState?.hitCharges ?? 2;
+                if (charges <= 0) { log('[HIT] Sem cargas.'); close(); return; }
+                updateSourceUnit(unit => ({ ...unit, isReady: true, charges, statusText: `HIT ${charges}`, customState: { ...(unit.customState || {}), hitCharges: charges, hitStance: true } }));
+                close(); return;
+            }
+            if (id === '57') { updateSourceUnit(unit => ({ ...unit, isImmune: true, effectTurns: 3, statusText: 'TOPPO 3T' })); setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { removeOpponentById(targetId); setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
+            if (id === '59') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: unit.currentAttack + 1000, effectTurns: 3, statusText: 'ROSE 3T', card: { ...unit.card, atk: unit.currentAttack + 1000 } })); setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { damageOpponentById(targetId, 1500); setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
+            if (id === '60') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), statusText: 'ORANGE', customState: { ...(unit.customState || {}), damageReduction: 0.5, attackCostDef: 500 }, card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
+            if (id === '63') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), effectTurns: 2, statusText: 'NEXT BLAST', customState: { ...(unit.customState || {}), delayedDamage: 1500 }, card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
+            if (id === '76') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), isImmune: true, effectTurns: 3, statusText: 'NARUTO 3T', card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
+            if (id === '77') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, originalHealth: unit.originalHealth ?? unit.currentHealth, currentAttack: 2500, currentHealth: 0, effectTurns: 3, statusText: 'SUSANOO 3T', customState: { ...(unit.customState || {}), reflectPlus: 900 }, card: { ...unit.card, atk: 2500, def: 0 } })); close(); return; }
+            if (id === '90') {
+                if (!source.customState?.lanternManual) {
+                    updateSourceUnit(unit => ({ ...unit, effectTurns: 3, statusText: 'LANTERN MANUAL 3T', customState: { ...(unit.customState || {}), lanternManual: true } }));
+                    console.log('[B-90] Lanterna Verde armado para AT manual', { sourceId: source.card.id });
+                    close(); return;
+                }
+                if (source.customState?.lanternAttackedThisTurn) {
+                    log('[LANTERNA VERDE] Ataque extra já foi usado neste turno!');
+                    close(); return;
+                }
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
+                    setOpponentBoardState(prev => prev.map(unit => {
+                        if (unit?.id !== targetId) return unit;
+                        const nextHealth = unit.currentHealth - 1200;
+                        return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+                    }));
+                    updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), lanternAttackedThisTurn: true } }));
+                    console.log('[B-90] Lanterna Verde disparou AT manual de 1200', { targetId });
+                    setInteractionMode({ type: 'IDLE' });
+                } });
+                close(); return;
+            }
+            if (id === '91') { setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { const target = opponentBoardState.find(unit => unit?.id === targetId); if (target) { const absorb = Math.floor(target.currentHealth * 0.5); setOpponentBoardState(opponentBoardState.map(unit => unit?.id === targetId ? { ...unit, currentHealth: unit.currentHealth - absorb, isStunned: true, effectTurns: 2, statusText: 'STUN 2T', card: { ...unit.card, def: unit.currentHealth - absorb } } : unit)); updateSourceUnit(unit => ({ ...unit, currentHealth: unit.currentHealth + absorb, card: { ...unit.card, def: unit.currentHealth + absorb } })); } setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
+            if (id === '93') {
+                const graveyard = isSourcePlayer ? enemyGraveyard : playerGraveyard;
+                if (graveyard.length === 0) { log('[HELA] Cemiterio vazio.'); close(); return; }
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
+                    const sacrificedIndex = sourceBoardState.findIndex(unit => unit?.id === targetId && unit.id !== source.id);
+                    if (sacrificedIndex === -1) { setInteractionMode({ type: 'IDLE' }); return; }
+                    setShowGraveyard(isSourcePlayer ? 'enemy' : 'player');
+                    setGraveyardSelectorMode({
+                        title: 'HELA: ROUBE 1 CARTA DO CEMITERIO INIMIGO',
+                        onSelect: (card) => {
+                            const revived = createUnit(card);
+                            setSourceBoardState(prev => prev.map((unit, index) => {
+                                if (index === sacrificedIndex) return revived;
+                                if (unit?.id === source.id) {
+                                    return { ...unit, customState: { ...(unit.customState || {}), helaActive: true }, statusText: 'HELA' };
+                                }
+                                return unit;
+                            }));
+                            if (isSourcePlayer) setEnemyGraveyard(prev => prev.filter(graveCard => graveCard !== card));
+                            else setPlayerGraveyard(prev => prev.filter(graveCard => graveCard !== card));
+                            console.log('[B-93] Hela roubou carta do cemiterio inimigo', { revivedId: revived.card.id, sacrificeTargetId: targetId });
+                        }
+                    });
+                    setInteractionMode({ type: 'IDLE' });
+                } });
+                close(); return;
+            }
+            if (id === '94') { setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { const target = opponentBoardState.find(unit => unit?.id === targetId); if (target?.card.universe) setOpponentBoardState(opponentBoardState.map(unit => unit?.card.universe === target.card.universe ? null : unit)); setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
+            if (id === '95') {
+                const selectedTargets: string[] = [];
+                const selectRavenaTarget = (targetId: string) => {
+                    if (!selectedTargets.includes(targetId)) selectedTargets.push(targetId);
+                    if (selectedTargets.length >= 2) {
+                        const targets = opponentBoardState.filter((unit): unit is TestUnit => !!unit && selectedTargets.includes(unit.id));
+                        const bonus = targets.reduce((sum, unit) => sum + unit.currentAttack, 0);
+                        setOpponentBoardState(prev => prev.map(unit => unit && selectedTargets.includes(unit.id) ? { ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: 0, isSilenced: true, effectTurns: 2, statusText: 'AT ABSORVIDO', card: { ...unit.card, atk: 0 } } : unit));
+                        updateSourceUnit(unit => ({ ...unit, originalHealth: unit.originalHealth ?? unit.currentHealth, currentHealth: unit.currentHealth + bonus, effectTurns: 2, statusText: 'RAVENA 2T', card: { ...unit.card, def: unit.currentHealth + bonus } }));
+                        console.log('[B-95] Ravena absorveu e subtraiu AT dos alvos', { selectedTargets, bonus });
+                        setInteractionMode({ type: 'IDLE' });
+                    } else {
+                        setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectRavenaTarget }), 0);
+                        log('[RAVENA] Selecione mais 1 alvo.');
+                    }
+                };
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectRavenaTarget });
+                close(); return;
+            }
+            if (id === '128') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: unit.currentAttack * 2, effectTurns: 2, statusText: 'WOLVERINE 2T', customState: { ...(unit.customState || {}), wolverineSurvive: true }, card: { ...unit.card, atk: unit.currentAttack * 2 } })); close(); return; }
+        }
+
         if (source.card.id === '139') {
             const isPlayerSource = playerBoard.some(u => u?.id === source.id);
             const targetBoard = isPlayerSource ? enemyBoard : playerBoard;
@@ -2577,7 +3180,7 @@ export const TestLab: React.FC = () => {
             // Stun Inimigos
             const newTargetBoard = targetBoard.map(u => {
                 if (!u) return null;
-                return { ...u, isStunned: true, effectTurns: 3, statusText: '🕸️ PRESO (3T)', statusEffect: 'stun' };
+                return { ...u, isStunned: true, isSilenced: true, effectTurns: 3, statusText: 'STUN/SILENCE (3T)', statusEffect: 'stun' };
             });
             setTargetBoardFn(newTargetBoard);
 
@@ -3060,48 +3663,38 @@ export const TestLab: React.FC = () => {
         // 🕷️ VIÚVA NEGRA (ID 165) - Dano + Silence
         if (source.card.id === '165') {
             const isPlayer = playerBoard.some(u => u?.id === source.id);
-            const tBoard = isPlayer ? enemyBoard : playerBoard;
             const setTBoard = isPlayer ? setEnemyBoard : setPlayerBoard;
-            forceTargetSelect(source.id, (targetId) => {
+            const targetPool = isPlayer ? enemyBoard : playerBoard;
+            if (!targetPool.some(unit => unit)) {
+                log('[VIUVA NEGRA] Sem alvos oponentes.');
+                setEffectMode(null);
+                if (cardPopup) setCardPopup(null);
+                return;
+            }
+            setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
                 let targetFound = false;
-                const newT = tBoard.map(unit => {
+                const activeTargetBoard = isPlayer ? enemyBoard : playerBoard;
+                const newT = activeTargetBoard.map(unit => {
                     if (!unit) return unit;
-                    const damagedHealth = unit.id === targetId ? unit.currentHealth - 500 : unit.currentHealth;
                     if (unit.id === targetId) targetFound = true;
-                    return damagedHealth <= 0 ? null : {
+                    const nextHealth = unit.id === targetId ? unit.currentHealth - 500 : unit.currentHealth;
+                    if (nextHealth <= 0) return null;
+                    return {
                         ...unit,
-                        currentHealth: damagedHealth,
+                        currentHealth: nextHealth,
                         isSilenced: true,
                         effectTurns: 2,
                         statusText: 'SILENCED',
-                        card: { ...unit.card, def: damagedHealth }
+                        card: { ...unit.card, def: nextHealth }
                     };
                 });
-                if (!targetFound) return;
-                setTBoard(newT);
-                log('[VIUVA NEGRA] Dano 500 aplicado e oponentes silenciados por 2T.');
-            });
-            if (cardPopup) setCardPopup(null);
-            return;
-        }
-
-        if (source.card.id === '165') {
-            forceTargetSelect(source.id, (targetId) => {
-                const isPlayer = playerBoard.some(u => u?.id === source.id);
-                const tBoard = isPlayer ? enemyBoard : playerBoard;
-                const setTBoard = isPlayer ? setEnemyBoard : setPlayerBoard;
-                const newT = [...tBoard];
-                const tIdx = newT.findIndex(u => u?.id === targetId);
-                if (tIdx !== -1) {
-                    const u = newT[tIdx]!;
-                    u.currentHealth -= 500;
-                    u.isSilenced = true; // Add Silence if supported
-                    u.statusText = '🔇 SILENCIADO';
-                    u.effectTurns = 2;
+                if (targetFound) {
                     setTBoard(newT);
-                    log(`🕷️ Viúva Negra atingiu ${u.card.name}! (-500 HP + Silence)`);
+                    log('[VIUVA NEGRA] Dano 500 aplicado e oponentes silenciados por 2T.');
                 }
-            });
+                setInteractionMode({ type: 'IDLE' });
+            }});
+            log('[VIUVA NEGRA] Selecione o alvo.');
             if (cardPopup) setCardPopup(null);
             return;
         }
@@ -3337,6 +3930,17 @@ export const TestLab: React.FC = () => {
         }
 
         const effects = parseAbilityToEffects(source.card.description || '', source.card.id);
+        const sourceBoardName: 'player' | 'enemy' = isSourcePlayer ? 'player' : 'enemy';
+        const needsEnemyTarget = effects.some(effect =>
+            ['damage', 'destroy', 'silence', 'invertStats', 'returnToHand', 'mindControl'].includes(effect.type) &&
+            effect.target !== 'self' &&
+            effect.target !== 'allies'
+        );
+        if (!effectMode && targetBoard === sourceBoardName && needsEnemyTarget) {
+            setEffectMode({ sourceId: source.id, sourceBoard: sourceBoardName });
+            log(`[${source.card.id}] Selecione um alvo inimigo.`);
+            return;
+        }
 
         // 🚨 BYPASS PARA CARTA COM LÓGICA MANUAL (Paladinos V3.7)
         // Se a carta é manual (159, 160, 161, 162), permitimos continuar mesmo que o parse falhe.
@@ -3755,7 +4359,8 @@ export const TestLab: React.FC = () => {
     };
 
     const spawnRandom = (boardType: 'player' | 'enemy', index: number) => {
-        const card = cards[Math.floor(Math.random() * cards.length)];
+        const card = getRandomPlayableCards(1)[0];
+        if (!card) return;
         const unit = createUnit(card);
         const isPlayer = boardType === 'player';
         const board = isPlayer ? playerBoard : enemyBoard;
@@ -3772,10 +4377,13 @@ export const TestLab: React.FC = () => {
     };
 
     const fillArena = (isPlayer: boolean) => {
+        const randomCards = getRandomPlayableCards(14);
+        let randomIndex = 0;
         const board = isPlayer ? playerBoard : enemyBoard;
         const newBoard = board.map(slot => {
             if (slot) return slot;
-            const card = cards[Math.floor(Math.random() * cards.length)];
+            const card = randomCards[randomIndex++];
+            if (!card) return null;
             return createUnit(card);
         });
 
@@ -3787,6 +4395,7 @@ export const TestLab: React.FC = () => {
             saveHistory(playerBoard, newBoard, playerHand);
         }
         log(`🎲 Arena ${isPlayer ? 'P1' : 'P2'} preenchida aleatoriamente.`);
+        setShowRandomMenu(false);
     };
 
     const renderSlot = (slot: any, index: number, board: 'player' | 'enemy' | 'hand', isUnit = true) => {
@@ -3859,7 +4468,7 @@ export const TestLab: React.FC = () => {
                     else if (slot && board !== 'hand') {
                         if ((slot as TestUnit).isStunned) {
                             e.stopPropagation();
-                            log(`🛑 ${(slot as TestUnit).card.name} está preso na teia! (Ação bloqueada)`);
+                            log(`🛑 ${(slot as TestUnit).card.name} esta Magnetizado! (Acao bloqueada)`);
                             // Permitir visualização APENAS
                             setSelectedSlot({ board: board, index: index });
                             setCardPopup({ unit: slot as TestUnit, board: board, index: index });
@@ -4006,7 +4615,7 @@ export const TestLab: React.FC = () => {
                 )}
                 {/* 🪦 GRAVEYARD MODAL */}
                 {showGraveyard && (
-                    <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[9999] animate-in fade-in zoom-in-95 duration-200 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-sm">
                         <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[80vh]">
                             <div className="flex justify-between items-center mb-6">
                                 <div>
@@ -4074,6 +4683,12 @@ export const TestLab: React.FC = () => {
                                     </span>
                                 </div>
                             )}
+                            <button
+                                onClick={() => { setShowGraveyard(null); setGraveyardSelectorMode(null); }}
+                                className="w-full mt-4 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-black text-white uppercase"
+                            >
+                                FECHAR
+                            </button>
                         </div>
                     </div>
                 )}
@@ -4082,12 +4697,36 @@ export const TestLab: React.FC = () => {
     };
 
     return (
-        <div className={`min-h-screen w-screen overflow-hidden grid ${sideBarOnRight ? 'grid-cols-[1fr_260px]' : 'grid-cols-[260px_1fr]'} bg-[#030305] text-white selection:bg-purple-500/30`}>
+        <div className={`flex flex-row h-screen w-screen overflow-hidden bg-[#030305] text-white selection:bg-purple-500/30`}>
+            <button
+                onClick={() => navigate(-1)}
+                className="fixed left-4 top-4 z-50 w-10 h-10 rounded-full flex items-center justify-center bg-zinc-800 border border-zinc-700 text-white/70 hover:text-white transition-all shadow-lg hover:bg-zinc-700"
+                title="Voltar"
+            >
+                <ArrowLeft size={18} />
+            </button>
             {/* BATTLEFIELD (14 SLOTS: 2x7) */}
             <div className={`flex-1 h-screen flex flex-col items-center justify-center p-8 bg-[radial-gradient(circle_at_center,_rgba(30,30,40,0.4)_0%,_transparent_70%)] relative ${sideBarOnRight ? 'order-1' : 'order-2'}`}>
 
                 {/* MÃO OPONENTE (Horizontal Slim) */}
-                <div className="w-full max-w-4xl px-8 flex justify-between items-center mb-8 gap-4">
+                <div className="w-full max-w-4xl px-8 flex justify-between items-center mb-2 gap-4">
+                    <div className="relative group ml-8 shrink-0">
+                        <button 
+                            onClick={() => setShowGraveyard('enemy')} 
+                            onDragOver={(e) => { handleDragOver(e); if (overGrave !== 'enemy') setOverGrave('enemy'); }}
+                            onDragLeave={() => setOverGrave(null)}
+                            onDrop={(e) => { handleGraveDrop(e, 'enemy'); setOverGrave(null); }}
+                            className={`w-12 h-16 border border-dashed rounded flex flex-col items-center justify-center transition-all cursor-pointer relative ${overGrave === 'enemy' ? 'border-red-500 bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.3)] scale-105' : 'border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800 hover:border-zinc-500'}`}
+                        >
+                            <Ghost size={14} className={`${overGrave === 'enemy' ? 'text-red-400' : 'text-zinc-600'} mb-0.5`} />
+                            <span className="text-[7px] font-mono font-black text-zinc-500 uppercase">GRAVE</span>
+                            {enemyGraveyard.length > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 bg-red-600/80 text-white text-[8px] font-black px-1 rounded-full shadow-lg border border-white/10">
+                                    {enemyGraveyard.length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
                     <div className="flex flex-row justify-center gap-1 w-full overflow-hidden">
                         {enemyHand.map((card, i) => (
                             <div
@@ -4115,9 +4754,11 @@ export const TestLab: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                    <div className="flex flex-col items-end whitespace-nowrap bg-black/40 px-4 py-2 rounded-lg border border-red-500/20">
-                        <span className="text-[8px] font-black uppercase text-red-500/50">OPONENTE HP</span>
-                        <span className="text-2xl font-black text-red-500 italic">{enemyHP}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex flex-col items-end whitespace-nowrap bg-black/40 px-4 py-2 rounded-lg border border-red-500/20">
+                            <span className="text-[8px] font-black uppercase text-red-500/50">OPONENTE HP</span>
+                            <span className="text-2xl font-black text-red-500 italic">{enemyHP}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -4138,7 +4779,24 @@ export const TestLab: React.FC = () => {
                 </div>
 
                 {/* MINHA MÃO (Horizontal Slim) */}
-                <div className="w-full max-w-4xl px-8 flex justify-between items-center mt-8 gap-4">
+                <div className="w-full max-w-4xl px-8 flex justify-between items-center mt-2 gap-4">
+                    <div className="relative group shrink-0">
+                        <button 
+                            onClick={() => setShowGraveyard('player')} 
+                            onDragOver={(e) => { handleDragOver(e); if (overGrave !== 'player') setOverGrave('player'); }}
+                            onDragLeave={() => setOverGrave(null)}
+                            onDrop={(e) => { handleGraveDrop(e, 'player'); setOverGrave(null); }}
+                            className={`w-12 h-16 border border-dashed rounded flex flex-col items-center justify-center transition-all cursor-pointer relative ${overGrave === 'player' ? 'border-blue-500 bg-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.3)] scale-105' : 'border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800 hover:border-zinc-500'}`}
+                        >
+                            <Ghost size={14} className={`${overGrave === 'player' ? 'text-blue-400' : 'text-zinc-600'} mb-0.5`} />
+                            <span className="text-[7px] font-mono font-black text-zinc-500 uppercase">GRAVE</span>
+                            {playerGraveyard.length > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 bg-blue-600/80 text-white text-[8px] font-black px-1 rounded-full shadow-lg border border-white/10">
+                                    {playerGraveyard.length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
                     <div className="flex flex-row justify-center gap-1 w-full overflow-hidden">
                         {playerHand.map((card, i) => (
                             <div
@@ -4166,9 +4824,11 @@ export const TestLab: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                    <div className="flex flex-col items-start whitespace-nowrap bg-black/40 px-4 py-2 rounded-lg border border-blue-500/20">
-                        <span className="text-[8px] font-black uppercase text-blue-500/50">JOGADOR HP</span>
-                        <span className="text-2xl font-black text-blue-500 italic">{playerHP}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="ml-4 flex flex-col items-start whitespace-nowrap bg-black/40 px-4 py-2 rounded-lg border border-blue-500/20">
+                            <span className="text-[8px] font-black uppercase text-blue-500/50">JOGADOR HP</span>
+                            <span className="text-2xl font-black text-blue-500 italic">{playerHP}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -4192,7 +4852,6 @@ export const TestLab: React.FC = () => {
                                 onClick={() => {
                                     setEffectMode(null);
                                     setGoblinTargetsDestroyed(0);
-                                    if (cardPopup) setCardPopup(null);
                                     log('🚫 Seleção cancelada.');
                                 }}
                                 className="bg-red-500/20 hover:bg-red-500/40 text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded border border-red-500/30 transition-all hover:scale-105 active:scale-95"
@@ -4214,27 +4873,27 @@ export const TestLab: React.FC = () => {
             </div>
 
             {/* SIDEBAR DIREITA: Busca + Painel Duplo */}
-            <div className={`flex flex-col h-screen bg-black/80 border-white/5 z-40 backdrop-blur-2xl transition-all ${sideBarOnRight ? 'order-2 border-l' : 'order-1 border-r'}`}>
+            <div className={`w-64 min-w-[256px] max-w-[256px] h-full overflow-hidden flex flex-col bg-black/80 border-white/5 z-40 backdrop-blur-2xl transition-all ${sideBarOnRight ? 'order-2 border-l' : 'order-1 border-r'}`}>
                 
                 {/* 🔍 BARRA DE PESQUISA SUPERIOR */}
                 <div className="p-4 border-b border-white/5 flex flex-col gap-3">
                     {/* Elemento Busca + Voltar */}
-                    <div className={`flex items-center gap-2 ${sideBarOnRight ? 'flex-row-reverse' : 'flex-row'}`}>
-                        <button onClick={() => navigate(-1)} className="p-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-white/50 hover:text-white transition-all text-[10px] font-black flex-shrink-0">
-                            {'<-'}
-                        </button>
+                    <div className="flex items-center gap-2">
                         <div className="relative flex-1">
                             <input
                                 type="text"
                                 placeholder="Buscar..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white outline-none focus:border-purple-500/50 transition-all placeholder:text-white/20"
+                                className="w-full bg-black/60 border border-white/10 rounded-lg pl-3 pr-12 py-2.5 text-xs text-white outline-none focus:border-purple-500/50 transition-all placeholder:text-white/20"
                             />
+                            <button onClick={() => setShowCardList(prev => !prev)} className="absolute right-2 top-2.5 text-white/35 hover:text-white transition-colors" title="Lista">
+                                {showCardList ? <X size={12} /> : <Search size={12} />}
+                            </button>
                             {searchQuery && (
                                 <button
                                     onClick={() => setSearchQuery('')}
-                                    className="absolute right-3 top-2.5 text-white/30 hover:text-white transition-colors text-xs font-black"
+                                    className="absolute right-8 top-2.5 text-white/30 hover:text-white transition-colors text-xs font-black"
                                 >
                                     [X]
                                 </button>
@@ -4244,10 +4903,13 @@ export const TestLab: React.FC = () => {
 
                     {/* Resultados de Busca (Limitado a 3) */}
                     {searchQuery && filteredCards.length > 0 && (
-                        <div className="bg-zinc-900 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                        <div className="bg-zinc-950/95 border border-white/10 rounded-lg overflow-hidden shadow-xl">
                             {filteredCards.slice(0, 3).map(card => (
-                                <div key={card.id} className="p-2 border-b border-white/5 hover:bg-white/5 transition-all">
-                                    <div className="text-[10px] font-bold text-white mb-1.5 truncate">{card.name}</div>
+                                <div key={card.id} className="py-1.5 px-2 border-b border-white/5 hover:bg-white/5 transition-all">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${getCardStatusClass(card.id)}`} />
+                                        <div className="text-[10px] font-bold text-white truncate">{card.name}</div>
+                                    </div>
                                     <div className="flex gap-1">
                                         <button onClick={() => { setSelectedCardId(card.id); spawnToField(true, card.id); setSelectedSearchItem(null); setSearchQuery(''); }} className="flex-1 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[8px] rounded border border-blue-500/20">P1</button>
                                         <button onClick={() => { setSelectedCardId(card.id); spawnToField(false, card.id); setSelectedSearchItem(null); setSearchQuery(''); }} className="flex-1 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[8px] rounded border border-red-500/20">P2</button>
@@ -4258,74 +4920,92 @@ export const TestLab: React.FC = () => {
                         </div>
                     )}
 
-                    {/* LINHA 1: ESPELHAMENTO */}
-                    <div className={`flex gap-1.5 ${(sideBarOnRight ? 'R' : 'L') === 'R' ? 'flex-row-reverse' : 'flex-row'}`}>
-                        <button onClick={undo} disabled={historyIndex <= 0} className={`flex-[0.5] py-1.5 text-[12px] font-black uppercase rounded border transition-all ${historyIndex > 0 ? 'bg-white/10 text-white/80 border-white/20' : 'bg-black/20 text-white/20 border-white/5'}`}>
-                            {'<'}
-                        </button>
-                        <button onClick={redo} disabled={historyIndex >= history.length - 1} className={`flex-[0.5] py-1.5 text-[12px] font-black uppercase rounded border transition-all ${historyIndex < history.length - 1 ? 'bg-white/10 text-white/80 border-white/20' : 'bg-black/20 text-white/20 border-white/5'}`}>
-                            {'>'}
-                        </button>
-                        <button onClick={handleReset} className="flex-[1.5] py-1.5 text-[9px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 rounded transition-all">
-                            RESET
-                        </button>
-                        <button onClick={nextTurn} className="flex-[1.5] py-1.5 text-[9px] font-black uppercase bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30 rounded transition-all">
-                            TURNO
-                        </button>
-                    </div>
+                    {showCardList && (
+                        <div className="w-full max-w-full max-h-[calc(100vh-150px)] overflow-y-auto overflow-x-hidden bg-zinc-950/95 border border-white/10 rounded-lg p-2 flex flex-col gap-2">
+                            <div className="grid grid-cols-3 gap-1">
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | 'ok' | 'pending')} className="appearance-none text-[9px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-white text-center cursor-pointer">
+                                    <option value="all">Status</option>
+                                    <option value="ok">OK</option>
+                                    <option value="pending">Pendente</option>
+                                </select>
+                                <select value={universeFilter} onChange={(e) => setUniverseFilter(e.target.value)} className="appearance-none text-[9px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-white text-center cursor-pointer">
+                                    <option value="all">Universo</option>
+                                    {universeOptions.map(value => <option key={value} value={value}>{value}</option>)}
+                                </select>
+                                <select value={rarityFilter} onChange={(e) => setRarityFilter(e.target.value)} className="appearance-none text-[9px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-white text-center cursor-pointer">
+                                    <option value="all">Raridade</option>
+                                    {rarityOptions.map(value => <option key={value} value={value}>{value}</option>)}
+                                </select>
+                            </div>
+                        <div className="w-full flex flex-col gap-0.5 overflow-y-auto pr-1">
+                            {inlineCardList.map(card => (
+                                <div key={card.id} className="py-0.5 px-1.5 border-b border-white/5 hover:bg-white/5 transition-all group flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${getCardStatusClass(card.id)}`} />
+                                    <button
+                                        onClick={() => { setSelectedCardId(card.id); setCardPopup({ unit: createUnit(card), board: 'player', index: 0 }); }}
+                                        className="flex-1 text-left text-[10px] font-bold text-white/90 truncate"
+                                    >
+                                        {card.name}
+                                    </button>
+                                    <div className="flex items-center justify-end min-w-[70px]">
+                                        <div className="flex gap-2 text-[9px] font-mono group-hover:hidden whitespace-nowrap opacity-60">
+                                            <span className="text-red-400/80">A:{card.atk}</span>
+                                            <span className="text-blue-400/80">D:{card.def}</span>
+                                        </div>
+                                        <div className="hidden group-hover:flex gap-1 shrink-0">
+                                            <button onClick={() => { setSelectedCardId(card.id); spawnToHand(card.id); }} className="w-5 h-5 flex items-center justify-center bg-purple-500/10 text-purple-300 border border-purple-500/20 rounded hover:bg-purple-500/30">M</button>
+                                            <button onClick={() => { setSelectedCardId(card.id); spawnToField(true, card.id); }} className="w-5 h-5 flex items-center justify-center bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded hover:bg-blue-500/30">1</button>
+                                            <button onClick={() => { setSelectedCardId(card.id); spawnToField(false, card.id); }} className="w-5 h-5 flex items-center justify-center bg-red-500/10 text-red-300 border border-red-500/20 rounded hover:bg-red-500/30">2</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        </div>
+                    )}
 
-                    {/* LINHA 2: ESPELHAMENTO */}
-                    <div className={`flex gap-1.5 ${sideBarOnRight ? 'flex-row-reverse' : 'flex-row'}`}>
-                        <button onClick={() => setShowCardList(true)} className="flex-1 py-1.5 text-[9px] font-black uppercase bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30 rounded transition-all">
-                            LISTA
+                    {!showCardList && (
+                    <>
+                    <div className={`grid grid-cols-3 gap-1.5 ${sideBarOnRight ? '' : '[direction:rtl]'}`}>
+                        <button onClick={nextTurn} className="py-1.5 text-[9px] font-black uppercase bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30 rounded transition-all [direction:ltr]">TURNO</button>
+                        <button onClick={() => { setShowResetMenu(prev => !prev); setShowRandomMenu(false); setShowSetupMenu(false); }} className="py-1.5 text-[9px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 rounded transition-all [direction:ltr]">RESET</button>
+                        <button onClick={() => setSideBarOnRight(prev => !prev)} className="py-1.5 text-[9px] font-black uppercase bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 rounded transition-all [direction:ltr]">L/R</button>
+                    </div>
+                    {showResetMenu && (
+                        <div className="grid grid-cols-3 gap-1">
+                            <button onClick={resetEnemy} className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-red-300">ADV</button>
+                            <button onClick={resetPlayer} className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-blue-300">MEU</button>
+                            <button onClick={resetAll} className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-white/80">AMBOS</button>
+                        </div>
+                    )}
+                    {showRandomMenu && (
+                        <div className="grid grid-cols-3 gap-1">
+                            <button onClick={() => fillArena(false)} className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-red-300">ADV</button>
+                            <button onClick={() => fillArena(true)} className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-blue-300">MEU</button>
+                            <button onClick={() => { fillArena(true); fillArena(false); setShowRandomMenu(false); }} className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full text-white/80">AMBOS</button>
+                        </div>
+                    )}
+                    <div className={`flex items-center gap-2 ${sideBarOnRight ? '' : '[direction:rtl]'}`}>
+                        <button onClick={handleNormalSetup} className="flex-1 py-1.5 text-[9px] font-black uppercase bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 rounded transition-all [direction:ltr]">SETUP</button>
+                        <button onClick={() => { setShowRandomMenu(prev => !prev); setShowResetMenu(false); setShowSetupMenu(false); }} className="flex-1 py-1.5 text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded transition-all [direction:ltr]">ALEATÓRIO</button>
+                        <button onClick={undo} disabled={historyIndex <= 0} title="Desfazer" className={`w-6 h-6 flex items-center justify-center rounded bg-zinc-800 text-xs border border-zinc-700 hover:bg-zinc-700 flex-none [direction:ltr] ${historyIndex > 0 ? 'opacity-100 text-zinc-300' : 'opacity-20 pointer-events-none text-zinc-500'}`}>
+                            <RotateCcw size={10} />
                         </button>
-                        <button onClick={() => {
-                            const newPBoard = Array(14).fill(null);
-                            const newEBoard = Array(14).fill(null);
-                            const shuffled = [...cards].sort(() => 0.5 - Math.random());
-                            for(let i=0; i<6; i++) {
-                                newPBoard[i] = createUnit(shuffled[i]);
-                                newEBoard[i] = createUnit(shuffled[i+6]);
-                            }
-                            setPlayerBoard(newPBoard);
-                            setEnemyBoard(newEBoard);
-                            log('🎲 Arena Aleatória!');
-                        }} className="flex-1 py-1.5 text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded transition-all">
-                            ALEATORIO
-                        </button>
-                        <button onClick={handleSetup} className="flex-1 py-1.5 text-[9px] font-black uppercase bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 rounded transition-all">
-                            SETUP
+                        <button onClick={redo} disabled={historyIndex >= history.length - 1} title="Refazer" className={`w-6 h-6 flex items-center justify-center rounded bg-zinc-800 text-xs border border-zinc-700 hover:bg-zinc-700 flex-none [direction:ltr] ${historyIndex < history.length - 1 ? 'opacity-100 text-zinc-300' : 'opacity-20 pointer-events-none text-zinc-500'}`}>
+                            <RotateCw size={10} />
                         </button>
                     </div>
+                    </>
+                    )}
                 </div>
 
                 {/* 🔄 SWITCHER (Habilidades vs Log) */}
-                <div className={`flex px-4 pt-4 mb-2 gap-2 items-center ${sideBarOnRight ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <button onClick={() => setSideBarOnRight(prev => !prev)} className="p-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-white/50 hover:text-white transition-all text-[9px] font-black" title="Layout L/R">
-                        L/R
-                    </button>
-                    <button
-                        onClick={() => setRightTab('log')}
-                        onDoubleClick={() => navigator.clipboard.writeText(eventLog.join('\n')).then(() => alert('Log copiado!'))}
-                        className={`flex-1 py-2 text-[9px] font-black uppercase rounded transition-all ${rightTab === 'log' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-white/30 border border-transparent hover:bg-white/10'}`}
-                    >
-                        LOG
-                    </button>
-                    <button
-                        onClick={() => setRightTab('habilidade')}
-                        className={`flex-1 py-2 text-[9px] font-black uppercase rounded transition-all ${rightTab === 'habilidade' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-white/5 text-white/30 border border-transparent hover:bg-white/10'}`}
-                    >
-                        HABILIDADES
-                    </button>
-                </div>
-
                 {/* 📜 ÁREA DE CONTEÚDO (Overflow) */}
-                <div className="flex-1 overflow-hidden p-4 flex flex-col">
-                    {rightTab === 'habilidade' ? (
-                        <div className="flex-1 flex flex-col min-h-0 bg-black/20 rounded-lg border border-white/5 p-3">
+                <div className="flex-1 overflow-hidden p-4 flex flex-col gap-3">
+                        <div className="flex-[0.48] flex flex-col min-h-0 bg-black/20 rounded-lg border border-white/5 p-3">
                             {cardPopup ? (
                                 <>
-                                    <div className="text-[11px] font-bold text-white mb-3 text-center">{cardPopup.unit.card.name}</div>
+                                    <div className="text-[11px] font-bold text-white mb-3 text-center">{cardPopup.unit.card.name} (AT: {cardPopup.unit.currentAttack} DF: {cardPopup.unit.currentHealth})</div>
                                     <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin">
                                         <p className="text-[11px] text-white/70 leading-relaxed">
                                             {cardPopup.unit.card.description || 'Sem habilidade especial'}
@@ -4349,7 +5029,7 @@ export const TestLab: React.FC = () => {
                                         onClick={() => executeEffect(cardPopup.board, cardPopup.index, cardPopup.unit)}
                                         className="w-full mt-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-[9px] font-black text-white uppercase rounded-lg shadow-lg hover:shadow-purple-500/50"
                                     >
-                                        USAR EFEITO
+                                        {cardPopup.unit.card.id === '90' && cardPopup.unit.customState?.lanternManual ? 'AT Extra' : 'USAR EFEITO'}
                                     </button>
                                 </>
                             ) : (
@@ -4359,21 +5039,27 @@ export const TestLab: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 bg-black/20 rounded-lg border border-white/5 p-3">
-                            {eventLog.map((msg, i) => (
+                        <div className="flex-[0.52] min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 bg-black/20 rounded-lg border border-white/5 p-3" onDoubleClick={() => navigator.clipboard.writeText(eventLog.join('\n')).then(() => alert('Log copiado!'))}>
+                            <div className="sticky top-0 z-10 bg-black/90 pb-2 mb-2 flex items-start justify-between gap-2 border-b border-white/10">
+                                <div className="text-[9px] text-white/70 leading-relaxed flex-1">
+                                    {eventLog[0]}
+                                </div>
+                                <button onClick={copyLog} className="flex-shrink-0 p-0" title="Copiar log">
+                                    <Copy size={14} className="text-gray-400 hover:text-white cursor-pointer" />
+                                </button>
+                            </div>
+                            {eventLog.slice(1).map((msg, i) => (
                                 <div key={i} className="text-[9px] text-white/50 leading-relaxed mb-2 pb-2 border-b border-white/5 last:border-0 last:mb-0 last:pb-0">
                                     {msg}
                                 </div>
                             ))}
                         </div>
-                    )}
                 </div>
             </div>
 
             {/* 🆕 OVERLAY - Lista Completa */}
             {
-                showCardList && (
+                false && showCardList && (
                     <div
                         className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-8"
                         onClick={() => setShowCardList(false)}
@@ -4422,8 +5108,8 @@ export const TestLab: React.FC = () => {
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                     {cards
                                         .filter(c =>
-                                            c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            c.id.includes(searchQuery)
+                                            normalizeSearch(c.name).includes(normalizeSearch(searchQuery)) ||
+                                            c.id.includes(normalizeSearch(searchQuery))
                                         )
                                         .map(card => {
                                             const isValidated = validatedCards.includes(card.id);
@@ -4516,7 +5202,7 @@ export const TestLab: React.FC = () => {
                                 </div>
 
                                 {/* Empty State */}
-                                {cards.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.id.includes(searchQuery)).length === 0 && (
+                                {cards.filter(c => normalizeSearch(c.name).includes(normalizeSearch(searchQuery)) || c.id.includes(normalizeSearch(searchQuery))).length === 0 && (
                                     <div className="text-center py-12 text-white/20 text-sm font-mono border-2 border-dashed border-white/5 rounded-xl">
                                         Nenhuma carta encontrada para "{searchQuery}"
                                     </div>
