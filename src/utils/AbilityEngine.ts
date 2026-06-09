@@ -109,10 +109,10 @@ const SpecialAbilities: Record<string, AbilityFactory> = {
     '93': () => [{
         trigger: 'onActivate',
         type: 'summon',
-        target: 'self',
+        target: 'any',
         value: 1,
         description: 'Roubar 1 carta do cemiterio inimigo com 1 sacrificio',
-        requiresTarget: false
+        requiresTarget: true
     }],
     '95': () => [{
         trigger: 'onActivate',

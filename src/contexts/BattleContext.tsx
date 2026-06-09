@@ -21,6 +21,7 @@ interface Unit extends Card {
     hasUsedAbility?: boolean;
     originalAttack?: number;
     originalHealth?: number;
+    ravenaAbsorbed?: { targetId: string; amount: number }[];
     charges?: number;
     karmaTargetId?: string;
     karmaStage?: 1 | 2;
@@ -721,6 +722,18 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                             return;
                         }
 
+                        if (target.cardId === '26' && target.isReady) {
+                            newState.opponentBoard = newState.opponentBoard.map((u, i) => {
+                                if (!u) return null;
+                                if (i === unitIndex) {
+                                    return { ...u, canAttack: false };
+                                }
+                                return u;
+                            });
+                            newState.playerLog = [normalizeBattleText(`${target.name} desviou o ataque de ${unit.name}!`), ...newState.playerLog].slice(0, 20);
+                            return;
+                        }
+
                         const combat = resolveCombat(
                             { attack: unit.currentAttack, defense: unit.currentHealth },
                             { attack: target.currentAttack, defense: target.currentHealth },
@@ -841,13 +854,16 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (nextStatusTurns === 0) {
                         updated.isStunned = false;
                         updated.isSilenced = false;
-                        if (updated.originalAttack !== undefined) {
+                        if (updated.originalAttack !== undefined && updated.cardId !== '93') {
                             updated.currentAttack = updated.originalAttack;
                             updated.originalAttack = undefined;
                         }
                         if (updated.originalHealth !== undefined) {
                             updated.currentHealth = updated.originalHealth;
                             updated.originalHealth = undefined;
+                        }
+                        if (updated.cardId === '26') {
+                            updated.isReady = false;
                         }
                     }
                 }
@@ -857,10 +873,6 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 if ((updated.counters?.helaBuffTurns || 0) > 0) {
                     const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
                     updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
-                    if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
-                        updated.currentAttack = updated.originalAttack;
-                        updated.originalAttack = undefined;
-                    }
                 }
 
                 return updated;
@@ -889,13 +901,16 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         if (nextStatusTurns === 0) {
                             updated.isStunned = false;
                             updated.isSilenced = false;
-                            if (updated.originalAttack !== undefined) {
+                            if (updated.originalAttack !== undefined && updated.cardId !== '93') {
                                 updated.currentAttack = updated.originalAttack;
                                 updated.originalAttack = undefined;
                             }
                             if (updated.originalHealth !== undefined) {
                                 updated.currentHealth = updated.originalHealth;
                                 updated.originalHealth = undefined;
+                            }
+                            if (updated.cardId === '26') {
+                                updated.isReady = false;
                             }
                         }
                     }
@@ -905,10 +920,6 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if ((updated.counters?.helaBuffTurns || 0) > 0) {
                         const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
                         updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
-                        if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
-                            updated.currentAttack = updated.originalAttack;
-                            updated.originalAttack = undefined;
-                        }
                     }
 
                     if (nextPlayer === 'player') {
@@ -948,13 +959,16 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         if (nextStatusTurns === 0) {
                             updated.isStunned = false;
                             updated.isSilenced = false;
-                            if (updated.originalAttack !== undefined) {
+                            if (updated.originalAttack !== undefined && updated.cardId !== '93') {
                                 updated.currentAttack = updated.originalAttack;
                                 updated.originalAttack = undefined;
                             }
                             if (updated.originalHealth !== undefined) {
                                 updated.currentHealth = updated.originalHealth;
                                 updated.originalHealth = undefined;
+                            }
+                            if (updated.cardId === '26') {
+                                updated.isReady = false;
                             }
                         }
                     }
@@ -964,10 +978,6 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if ((updated.counters?.helaBuffTurns || 0) > 0) {
                         const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
                         updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
-                        if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
-                            updated.currentAttack = updated.originalAttack;
-                            updated.originalAttack = undefined;
-                        }
                     }
 
                     if (nextPlayer === 'opponent') {
@@ -1223,9 +1233,22 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 [...newState.playerBoard, ...newState.opponentBoard, ...newState.divineSlots.player, ...newState.divineSlots.opponent]
                     .find((u): u is Unit => !!u && u.id === targetUnitId);
 
+            if (targetId) {
+                const directTarget = findTargetUnit(targetId);
+                if (directTarget?.cardId === '26' && directTarget.isReady) {
+                    addToast('Instinto Superior desviou a habilidade!', 'info');
+                    return newState;
+                }
+            }
+
             if (source.cardId === '26' && targetId) {
                 updateTargetUnit(targetId, () => null);
-                updateSourceUnit(unit => ({ ...unit, hasUsedAbility: true, isReady: false }));
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    hasUsedAbility: true,
+                    isReady: true,
+                    counters: { ...unit.counters, statusTurns: 3 }
+                }));
                 addToast(`${source.name} eliminou o alvo com Kamehameha!`, 'info');
                 return newState;
             }
@@ -1235,16 +1258,23 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 const boostedAttack = source.currentAttack * 2;
                 const boostedHealth = source.currentHealth * 2;
                 if (target) {
-                    if (boostedAttack < target.currentHealth) {
+                    const combat = resolveCombat(
+                        { attack: boostedAttack, defense: boostedHealth },
+                        { attack: target.currentAttack, defense: target.currentHealth },
+                        0
+                    );
+                    if (combat.attackerDies) {
                         updateSourceUnit(() => null);
                         if (sourceIsPlayer) newState.playerGraveyard = [...newState.playerGraveyard, source];
                         else newState.opponentGraveyard = [...newState.opponentGraveyard, source];
                         addToast(`${source.name} caiu no contra-ataque contra DEF maior!`, 'warning');
                         return newState;
                     }
-                    updateTargetUnit(targetId!, () => null);
-                    if (sourceIsPlayer) newState.opponentGraveyard = [...newState.opponentGraveyard, target];
-                    else newState.playerGraveyard = [...newState.playerGraveyard, target];
+                    updateTargetUnit(targetId!, unit => combat.defenderDies ? null : { ...unit, currentHealth: combat.newDefenderDef });
+                    if (combat.defenderDies) {
+                        if (sourceIsPlayer) newState.opponentGraveyard = [...newState.opponentGraveyard, target];
+                        else newState.playerGraveyard = [...newState.playerGraveyard, target];
+                    }
                 }
                 updateSourceUnit(unit => ({
                     ...unit,
@@ -1260,6 +1290,16 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             }
 
             if (source.cardId === '34' && targetId) {
+                const target = findTargetUnit(targetId);
+                if (target && target.currentAttack >= 3200) {
+                    updateSourceUnit(unit => ({
+                        ...unit,
+                        hasUsedAbility: true,
+                        counters: { ...unit.counters, saitamaCooldown: 4 }
+                    }));
+                    addToast('Soco ineficaz contra Divinos', 'warning');
+                    return newState;
+                }
                 updateTargetUnit(targetId, () => null);
                 updateSourceUnit(unit => ({
                     ...unit,
@@ -1298,6 +1338,13 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             }
 
             if (source.cardId === '93') {
+                const sacrificeIndex = sourceIsPlayer
+                    ? newState.playerBoard.findIndex(unit => unit?.id === targetId && unit.id !== source.id)
+                    : newState.opponentBoard.findIndex(unit => unit?.id === targetId && unit.id !== source.id);
+                if (sacrificeIndex === -1) {
+                    addToast('Selecione 1 aliado para sacrificar!', 'warning');
+                    return prev;
+                }
                 const enemyGraveyard = sourceIsPlayer ? newState.opponentGraveyard : newState.playerGraveyard;
                 const stolen = enemyGraveyard[0];
                 if (!stolen) {
@@ -1311,17 +1358,15 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     currentAttack: stolen.atk || 0,
                     canAttack: false
                 };
-                const targetBoard = sourceIsPlayer ? newState.playerBoard : newState.opponentBoard;
-                const emptyIndex = targetBoard.findIndex(slot => slot === null);
-                if (emptyIndex === -1) {
-                    addToast('Sem espaco para roubar carta do cemiterio!', 'warning');
-                    return prev;
-                }
                 if (sourceIsPlayer) {
-                    newState.playerBoard = newState.playerBoard.map((unit, index) => index === emptyIndex ? revived : unit);
+                    const sacrificed = newState.playerBoard[sacrificeIndex];
+                    if (sacrificed) newState.playerGraveyard = [...newState.playerGraveyard, sacrificed];
+                    newState.playerBoard = newState.playerBoard.map((unit, index) => index === sacrificeIndex ? revived : unit);
                     newState.opponentGraveyard = newState.opponentGraveyard.slice(1);
                 } else {
-                    newState.opponentBoard = newState.opponentBoard.map((unit, index) => index === emptyIndex ? revived : unit);
+                    const sacrificed = newState.opponentBoard[sacrificeIndex];
+                    if (sacrificed) newState.opponentGraveyard = [...newState.opponentGraveyard, sacrificed];
+                    newState.opponentBoard = newState.opponentBoard.map((unit, index) => index === sacrificeIndex ? revived : unit);
                     newState.playerGraveyard = newState.playerGraveyard.slice(1);
                 }
                 updateSourceUnit(unit => ({ ...unit, hasUsedAbility: true }));
@@ -1330,20 +1375,35 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             }
 
             if (source.cardId === '95' && targetId) {
-                const target = findTargetUnit(targetId);
-                if (!target) return prev;
-                const absorbedAttack = target.currentAttack;
-                updateTargetUnit(targetId, unit => ({
-                    ...unit,
-                    originalAttack: unit.originalAttack ?? unit.currentAttack,
-                    currentAttack: 0,
-                    isSilenced: true,
-                    counters: { ...unit.counters, statusTurns: 2 }
-                }));
+                const enemyUnits = sourceIsPlayer
+                    ? [...newState.opponentBoard, ...newState.divineSlots.opponent]
+                    : [...newState.playerBoard, ...newState.divineSlots.player];
+                const targetIds = [
+                    targetId,
+                    ...enemyUnits
+                        .filter((unit): unit is Unit => !!unit && unit.id !== targetId)
+                        .map(unit => unit.id)
+                ].slice(0, 2);
+                const targets = targetIds
+                    .map(id => findTargetUnit(id))
+                    .filter((unit): unit is Unit => !!unit)
+                    .slice(0, 2);
+                if (targets.length === 0) return prev;
+                const absorbedAttack = targets.reduce((sum, unit) => sum + unit.currentAttack, 0);
+                targets.forEach(target => {
+                    updateTargetUnit(target.id, unit => ({
+                        ...unit,
+                        originalAttack: unit.originalAttack ?? unit.currentAttack,
+                        currentAttack: 0,
+                        isSilenced: true,
+                        counters: { ...unit.counters, statusTurns: 2 }
+                    }));
+                });
                 updateSourceUnit(unit => ({
                     ...unit,
                     originalHealth: unit.originalHealth ?? unit.currentHealth,
                     currentHealth: unit.currentHealth + absorbedAttack,
+                    ravenaAbsorbed: targets.map(unit => ({ targetId: unit.id, amount: unit.currentAttack })),
                     counters: { ...unit.counters, statusTurns: 2 },
                     hasUsedAbility: true
                 }));
@@ -2117,6 +2177,33 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     };
                 }
 
+                if (target.cardId === '26' && target.isReady) {
+                    addToast(`${target.name} desviou o ataque!`, 'info');
+                    const newPlayerBoard = prev.playerBoard.map(u => {
+                        if (!u) return null;
+                        if (u.id === attackerId) {
+                            return { ...u, remainingAttacks: attackerRemainingAttacks, canAttack: attackerRemainingAttacks > 0 };
+                        }
+                        return u;
+                    });
+                    const newPlayerDivineSlots = prev.divineSlots.player.map(u => {
+                        if (!u) return null;
+                        if (u.id === attackerId) {
+                            return { ...u, remainingAttacks: attackerRemainingAttacks, canAttack: attackerRemainingAttacks > 0 };
+                        }
+                        return u;
+                    });
+                    return {
+                        ...prev,
+                        playerBoard: shrinkBoardIfNeeded(newPlayerBoard),
+                        divineSlots: {
+                            ...prev.divineSlots,
+                            player: newPlayerDivineSlots
+                        },
+                        opponentLog: [normalizeBattleText(`${target.name} desviou o ataque de ${attacker!.name}!`), ...prev.opponentLog].slice(0, 20)
+                    };
+                }
+
                 addToast(`${attacker!.name} atacou ${target!.name}!`, 'info');
 
                 // NEW COMBAT ENGINE LOGIC
@@ -2146,12 +2233,10 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null; // Destroyed
                         if (result.defenderDies && u.cardId === '93') {
-                            const nextAttack = Math.floor(u.currentAttack * 1.2);
+                            const nextAttack = Math.floor(u.currentAttack * 1.5);
                             return {
                                 ...u,
-                                originalAttack: u.originalAttack ?? u.currentAttack,
                                 currentAttack: nextAttack,
-                                counters: { ...u.counters, helaBuffTurns: 3 },
                                 remainingAttacks: attackerRemainingAttacks,
                                 canAttack: attackerRemainingAttacks > 0
                             };
@@ -2185,12 +2270,10 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null;
                         if (result.defenderDies && u.cardId === '93') {
-                            const nextAttack = Math.floor(u.currentAttack * 1.2);
+                            const nextAttack = Math.floor(u.currentAttack * 1.5);
                             return {
                                 ...u,
-                                originalAttack: u.originalAttack ?? u.currentAttack,
                                 currentAttack: nextAttack,
-                                counters: { ...u.counters, helaBuffTurns: 3 },
                                 remainingAttacks: attackerRemainingAttacks,
                                 canAttack: attackerRemainingAttacks > 0
                             };
@@ -2447,7 +2530,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (source.cardId === '34') {
             const target = [...state.opponentBoard, ...state.divineSlots.opponent, ...state.playerBoard, ...state.divineSlots.player]
                 .find(u => u?.id === targetId);
-            if (target && (((target as any).tier === 'Divino') || target.rarity === 'Supremo')) {
+            if (target && target.currentAttack >= 3200) {
                 addToast('Soco ineficaz contra Divinos', 'warning');
                 return;
             }

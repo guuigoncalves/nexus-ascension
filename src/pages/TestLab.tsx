@@ -1817,6 +1817,13 @@ export const TestLab: React.FC = () => {
             }
         }
 
+        if (defender.card.id === '26' && defender.isReady) {
+            log(`[B-26] ${defender.card.name} desviou do ataque de ${attacker.card.name}.`);
+            setAttackMode(null);
+            setSelectedSlot(null);
+            return;
+        }
+
         // Imunidade bloqueia dano recebido, mas nao anula recuo do atacante fraco.
         const defenderBlocksCombat = defender.isImmune || defender.statusEffect === 'immune';
         if (defenderBlocksCombat) {
@@ -2262,17 +2269,15 @@ export const TestLab: React.FC = () => {
             const attIdx = attackerBoardArr.findIndex(u => u?.id === attacker.id);
             if (attIdx !== -1 && attackerBoardArr[attIdx]) {
                 const attUnit = { ...attackerBoardArr[attIdx]! };
-                const nextAttack = Math.floor(attUnit.currentAttack * 1.2);
+                const nextAttack = Math.floor(attUnit.currentAttack * 1.5);
                 attackerBoardArr[attIdx] = {
                     ...attUnit,
-                    originalAttack: attUnit.originalAttack ?? attUnit.currentAttack,
                     currentAttack: nextAttack,
                     card: { ...attUnit.card, atk: nextAttack },
-                    effectTurns: 3,
-                    statusText: 'HELA +20% AT'
+                    statusText: 'HELA +50% AT'
                 };
                 if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
-                console.log('[B-93] Hela ganhou +20% AT por 3T ao derrotar inimigo', { nextAttack });
+                console.log('[B-93] Hela ganhou +50% AT permanente ao derrotar inimigo', { nextAttack });
             }
         }
 
@@ -2997,8 +3002,9 @@ export const TestLab: React.FC = () => {
                 updateSourceUnit(unit => ({ ...unit, abilityCooldown: 4, statusText: 'CD 4T' }));
                 const selectSaitamaTarget = (targetId: string) => {
                     const target = opponentBoardState.find(unit => unit?.id === targetId);
-                    if (target && (((target.card as any).tier === 'divino') || (target.card as any).tier === 'Divino' || target.card.rarity === 'Supremo')) {
+                    if (target && target.currentAttack >= 3200) {
                         log('Ineficaz');
+                        setInteractionMode({ type: 'IDLE' });
                         return;
                     }
                     removeOpponentById(targetId);
@@ -4700,10 +4706,10 @@ export const TestLab: React.FC = () => {
         <div className={`flex flex-row h-screen w-screen overflow-hidden bg-[#030305] text-white selection:bg-purple-500/30`}>
             <button
                 onClick={() => navigate(-1)}
-                className="fixed left-4 top-4 z-50 w-10 h-10 rounded-full flex items-center justify-center bg-zinc-800 border border-zinc-700 text-white/70 hover:text-white transition-all shadow-lg hover:bg-zinc-700"
+                className="fixed left-3 top-3 z-50 w-8 h-8 rounded-full flex items-center justify-center bg-zinc-800 border border-zinc-700 text-white/70 hover:text-white transition-all shadow-lg hover:bg-zinc-700"
                 title="Voltar"
             >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={14} />
             </button>
             {/* BATTLEFIELD (14 SLOTS: 2x7) */}
             <div className={`flex-1 h-screen flex flex-col items-center justify-center p-8 bg-[radial-gradient(circle_at_center,_rgba(30,30,40,0.4)_0%,_transparent_70%)] relative ${sideBarOnRight ? 'order-1' : 'order-2'}`}>
@@ -4939,7 +4945,7 @@ export const TestLab: React.FC = () => {
                             </div>
                         <div className="w-full flex flex-col gap-0.5 overflow-y-auto pr-1">
                             {inlineCardList.map(card => (
-                                <div key={card.id} className="py-0.5 px-1.5 border-b border-white/5 hover:bg-white/5 transition-all group flex items-center gap-2">
+                                <div key={card.id} className="py-0.5 px-1.5 border-b border-white/5 hover:bg-white/5 transition-all group flex items-center justify-between gap-2">
                                     <span className={`w-2 h-2 rounded-full shrink-0 ${getCardStatusClass(card.id)}`} />
                                     <button
                                         onClick={() => { setSelectedCardId(card.id); setCardPopup({ unit: createUnit(card), board: 'player', index: 0 }); }}
@@ -4988,10 +4994,10 @@ export const TestLab: React.FC = () => {
                     <div className={`flex items-center gap-2 ${sideBarOnRight ? '' : '[direction:rtl]'}`}>
                         <button onClick={handleNormalSetup} className="flex-1 py-1.5 text-[9px] font-black uppercase bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 rounded transition-all [direction:ltr]">SETUP</button>
                         <button onClick={() => { setShowRandomMenu(prev => !prev); setShowResetMenu(false); setShowSetupMenu(false); }} className="flex-1 py-1.5 text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded transition-all [direction:ltr]">ALEATÓRIO</button>
-                        <button onClick={undo} disabled={historyIndex <= 0} title="Desfazer" className={`w-6 h-6 flex items-center justify-center rounded bg-zinc-800 text-xs border border-zinc-700 hover:bg-zinc-700 flex-none [direction:ltr] ${historyIndex > 0 ? 'opacity-100 text-zinc-300' : 'opacity-20 pointer-events-none text-zinc-500'}`}>
+                        <button onClick={undo} disabled={historyIndex <= 0} title="Desfazer" className={`w-10 h-10 flex items-center justify-center rounded-full bg-zinc-800 text-xs border border-zinc-700 hover:bg-zinc-700 flex-none [direction:ltr] ${historyIndex > 0 ? 'opacity-100 text-zinc-300' : 'opacity-20 pointer-events-none text-zinc-500'}`}>
                             <RotateCcw size={10} />
                         </button>
-                        <button onClick={redo} disabled={historyIndex >= history.length - 1} title="Refazer" className={`w-6 h-6 flex items-center justify-center rounded bg-zinc-800 text-xs border border-zinc-700 hover:bg-zinc-700 flex-none [direction:ltr] ${historyIndex < history.length - 1 ? 'opacity-100 text-zinc-300' : 'opacity-20 pointer-events-none text-zinc-500'}`}>
+                        <button onClick={redo} disabled={historyIndex >= history.length - 1} title="Refazer" className={`w-10 h-10 flex items-center justify-center rounded-full bg-zinc-800 text-xs border border-zinc-700 hover:bg-zinc-700 flex-none [direction:ltr] ${historyIndex < history.length - 1 ? 'opacity-100 text-zinc-300' : 'opacity-20 pointer-events-none text-zinc-500'}`}>
                             <RotateCw size={10} />
                         </button>
                     </div>
