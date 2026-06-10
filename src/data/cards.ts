@@ -58,7 +58,8 @@ export const initialCards: Card[] = [
         "def": 3500,
         "rarity": "Supremo",
         "description": "Invoca 1 Lacaio com 500 Pontos e controla 1 oponente permanentemente. Efeitos cessam se Darkseid for eliminado.",
-        "image": "/cards/11.png"
+        "image": "/cards/11.png",
+        "isVillain": true
     },
     {
         "id": "13",
@@ -107,7 +108,8 @@ export const initialCards: Card[] = [
         "def": 2800,
         "rarity": "Destruidor",
         "description": "A cada aliado derrotado aumenta sua ira, e ganha 1000 de Ataque. Ao perder o 4º aliado, é consumido pela fúria e se autodestrói.",
-        "image": "/cards/17.png"
+        "image": "/cards/17.png",
+        "isVillain": true
     },
     {
         "id": "18",
@@ -137,7 +139,8 @@ export const initialCards: Card[] = [
         "def": 2500,
         "rarity": "Destruidor",
         "description": "Pode ressuscitar até 3x, sempre no Turno seguinte e cada vez com -25% de seus Pts. Na 3º leva junto dois companheiro.",
-        "image": "/cards/20.png"
+        "image": "/cards/20.png",
+        "isVillain": true
     },
     {
         "id": "22",
@@ -147,7 +150,8 @@ export const initialCards: Card[] = [
         "def": 2600,
         "rarity": "Destruidor",
         "description": "Sempre que o adversario atacar, ganha +20% Ataque. Mesmo em modo de Defesa. (Deve ativar antes, é revelada no seu próximo Turno). Perde a Defesa na mesma proporção.",
-        "image": "/cards/22.png"
+        "image": "/cards/22.png",
+        "isVillain": true
     },
     {
         "id": "25",
@@ -226,7 +230,8 @@ export const initialCards: Card[] = [
         "def": 2250,
         "rarity": "Lendário",
         "description": "Por 3 Turnos ativa sua Forma Black, dobrando seus Pontos e concedendo-lhe um contra-ataque imediato.",
-        "image": "/cards/33.png"
+        "image": "/cards/33.png",
+        "isVillain": true
     },
     {
         "id": "34",
@@ -236,7 +241,8 @@ export const initialCards: Card[] = [
         "def": 2250,
         "rarity": "Lendário",
         "description": "Desfere um Soco Avassalador que destrói Habilidade, Efeito ou guerreiros do alvo escolhido (exceto Divinos). Pode repetir a cada 4T.",
-        "image": "/cards/34.png"
+        "image": "/cards/34.png",
+        "isVillain": true
     },
     {
         "id": "35",
@@ -266,7 +272,8 @@ export const initialCards: Card[] = [
         "def": 2250,
         "rarity": "Lendário",
         "description": "Ativa a Manopla do Infinito, escolhe uma Joia por 2 Turnos. Mente: controla 1 oponente, Alma: altera Ataque, Defesa ou Habilidade de 1 carta.",
-        "image": "/cards/37.png"
+        "image": "/cards/37.png",
+        "isVillain": true
     },
     {
         "id": "44",
@@ -346,7 +353,8 @@ export const initialCards: Card[] = [
         "def": 1850,
         "rarity": "Titã",
         "description": "Troca de corpo com um oponente por 3 Turnos. Podendo usar a Habilidade da vítima 1x, tendo sido usada antes ou não.",
-        "image": "/cards/54.png"
+        "image": "/cards/54.png",
+        "isVillain": true
     },
     {
         "id": "55",
@@ -446,7 +454,8 @@ export const initialCards: Card[] = [
         "def": 1650,
         "rarity": "Elite",
         "description": "Quando ativo em 2 Turnos proprios explode, destruindo a arena e todos nela. Após 2 Turnos Cell se regenera com Ataque +50% e Defesa -50%.",
-        "image": "/cards/64.png"
+        "image": "/cards/64.png",
+        "isVillain": true
     },
     {
         "id": "76",
@@ -546,7 +555,8 @@ export const initialCards: Card[] = [
         "def": 1550,
         "rarity": "Titã",
         "description": "Cada oponente derrotado aumenta 20% seu Ataque por 3 Turnos. Com 1 sacrifício, revive 1 vilão geral",
-        "image": "/cards/93.png"
+        "image": "/cards/93.png",
+        "isVillain": true
     },
     {
         "id": "94",
@@ -616,7 +626,8 @@ export const initialCards: Card[] = [
         "def": 1400,
         "rarity": "Veterano",
         "description": "Infecta 1 oponente com sua marca. após 3 Turnos, toma posse de seu corpo. Porem Habilidade permanece a do Orochimaru (reutilizável).",
-        "image": "/cards/112.png"
+        "image": "/cards/112.png",
+        "isVillain": true
     },
     {
         "id": "113",
@@ -666,7 +677,8 @@ export const initialCards: Card[] = [
         "def": 1200,
         "rarity": "Veterano",
         "description": "Toma posse de um oponente unindo seus Pts por 2 Turnos. Ao retornar, absorve 50% de seu Ataque, porem cede sua Defesa ao oponente.",
-        "image": "/cards/129.png"
+        "image": "/cards/129.png",
+        "isVillain": true
     },
     {
         "id": "130",
@@ -966,7 +978,8 @@ export const initialCards: Card[] = [
         "def": 850,
         "rarity": "Paladino",
         "description": "Copia os Pontos de 1 adversario na arena. O deixando inconsciente sem atacar por 2 Turnos",
-        "image": "/cards/167.png"
+        "image": "/cards/167.png",
+        "isVillain": true
     },
     {
         "id": "169",
@@ -976,7 +989,8 @@ export const initialCards: Card[] = [
         "def": 850,
         "rarity": "Paladino",
         "description": "Usa magias ancestrais para selar todos  os Efeito e Habilidade dos oponentes por 4T, anulando ativos e inativos.",
-        "image": "/cards/169.png"
+        "image": "/cards/169.png",
+        "isVillain": true
     },
     {
         "id": "170",
@@ -986,7 +1000,8 @@ export const initialCards: Card[] = [
         "def": 850,
         "rarity": "Paladino",
         "description": "dura 2 Turnos, escolha: ativar o traje avançado para aumentar seus Pontos em 1000 ou usar drones para zerar a Defesa de 2 oponentes.",
-        "image": "/cards/170.png"
+        "image": "/cards/170.png",
+        "isVillain": true
     },
     {
         "id": "172",
@@ -1056,7 +1071,8 @@ export const initialCards: Card[] = [
         "def": 750,
         "rarity": "Soldado",
         "description": "O próximo adversário que destruir, ganha +400 DEF e reduz 50% do AT dos oponentes por 2T.",
-        "image": "/cards/190.png"
+        "image": "/cards/190.png",
+        "isVillain": true
     },
     {
         "id": "191",
@@ -1066,7 +1082,8 @@ export const initialCards: Card[] = [
         "def": 700,
         "rarity": "Soldado",
         "description": "Implanta caos as cartas adversárias na arena, destruindo até 2 cartas de Defesa menor que 1000.",
-        "image": "/cards/191.png"
+        "image": "/cards/191.png",
+        "isVillain": true
     },
     {
         "id": "192",
@@ -1126,7 +1143,8 @@ export const initialCards: Card[] = [
         "def": 500,
         "rarity": "Soldado",
         "description": "Escolha uma carta da mão do oponente aleatoriamente para si.",
-        "image": "/cards/212.png"
+        "image": "/cards/212.png",
+        "isVillain": true
     },
     {
         "id": "213",

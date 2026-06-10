@@ -1048,17 +1048,13 @@ export const TestLab: React.FC = () => {
         const newPBoard = Array(14).fill(null);
         const newEBoard = Array(14).fill(null);
         const newPlayerHand = Array(8).fill(null);
-        const setupIds = ['26', '33', '34', '51', '90', '93', '95'];
+        const setupIds = ['26', '33', '34', '76', '90', '93', '95', '36', '51'];
         const setupCards = setupIds
             .map(id => initialCards.find(card => card.id === id))
             .filter((card): card is NonNullable<typeof card> => !!card);
         setupCards.forEach((card, index) => {
             if (!card) return;
             newPBoard[index] = createUnit(card);
-        });
-
-        setupCards.forEach((card, index) => {
-            newEBoard[index] = createUnit(card);
         });
 
         setPlayerBoard(newPBoard);
@@ -1217,7 +1213,7 @@ export const TestLab: React.FC = () => {
                     // Se o efeito expirou
                     if (updated.effectTurns <= 0) {
                         // Reverter ATK
-                        if (updated.originalAttack !== undefined) {
+                        if (updated.originalAttack !== undefined && !updated.customState?.ravenaAbsorbed) {
                             updated.currentAttack = updated.originalAttack;
                             updated.originalAttack = undefined;
                         }
@@ -1266,12 +1262,40 @@ export const TestLab: React.FC = () => {
                             log('[OOB] DEF reduzida em 50%.');
                         }
 
+                        const nextCustomState = { ...(updated.customState || {}) };
+                        if (unit.card.id === '26') {
+                            nextCustomState.uiKamehamehaActive = false;
+                            updated.isReady = false;
+                            updated.isImmune = false;
+                        }
+                        if (unit.card.id === '33') {
+                            nextCustomState.freezaStance = false;
+                        }
+                        if (unit.card.id === '76') {
+                            updated.isImmune = false;
+                        }
+                        if (unit.card.id === '90') {
+                            nextCustomState.lanternManual = false;
+                            nextCustomState.lanternAttackedThisTurn = false;
+                        }
+                        if (unit.card.id === '95' && updated.customState?.ravenaAbsorptionTargets) {
+                            nextCustomState.ravenaExpired = true;
+                        }
+                        if (unit.card.id === '36' && updated.customState?.thorAffectedIds) {
+                            nextCustomState.thorExpired = true;
+                        }
+                        if (unit.card.id === '51' && updated.customState?.magnetoAffectedIds) {
+                            nextCustomState.magnetoExpired = true;
+                        }
+
                         // Reverter Status Bool
                         updated = {
                             ...updated,
                             isStunned: false,
                             isSilenced: false,
-                            isIntangible: false
+                            isIntangible: false,
+                            isImmune: false,
+                            customState: nextCustomState
                         };
 
                         // 🔻 DEBUFFS PERMANENTES (Pós-Efeito) - V4.7
@@ -1325,6 +1349,83 @@ export const TestLab: React.FC = () => {
         const nextTurnNumber = turnNumber + 1;
         let newPlayerBoard = processBoard(playerBoard, 'player');
         let newEnemyBoard = processBoard(enemyBoard, 'enemy');
+
+        const restoreRavenaTargets = (ravenaBoard: TestSlot[], targetBoard: TestSlot[]): { ravenaBoard: TestSlot[]; targetBoard: TestSlot[] } => {
+            let nextRavenaBoard = ravenaBoard;
+            let nextTargetBoard = targetBoard;
+            ravenaBoard.forEach(ravena => {
+                if (ravena?.card.id !== '95' || !ravena.customState?.ravenaExpired) return;
+                const storedTargets = ravena.customState.ravenaAbsorptionTargets || [];
+                nextTargetBoard = nextTargetBoard.map(unit => {
+                    const stored = storedTargets.find((target: any) => target.id === unit?.id);
+                    if (!unit || !stored) return unit;
+                    const { ravenaAbsorbed, ravenaSourceId, ...nextCustomState } = unit.customState || {};
+                    return {
+                        ...unit,
+                        originalAttack: undefined,
+                        currentAttack: Math.max(0, stored.remaining),
+                        isSilenced: false,
+                        card: { ...unit.card, atk: Math.max(0, stored.remaining) },
+                        customState: nextCustomState
+                    };
+                });
+                nextRavenaBoard = nextRavenaBoard.map(unit => {
+                    if (unit?.id !== ravena.id) return unit;
+                    const { ravenaAbsorptionTargets, ravenaExpired, ...nextCustomState } = unit.customState || {};
+                    return { ...unit, customState: nextCustomState };
+                });
+                log('[RAVENA] AT restante devolvido aos alvos.');
+            });
+            return { ravenaBoard: nextRavenaBoard, targetBoard: nextTargetBoard };
+        };
+
+        const playerRavenaRestore = restoreRavenaTargets(newPlayerBoard, newEnemyBoard);
+        newPlayerBoard = playerRavenaRestore.ravenaBoard;
+        newEnemyBoard = playerRavenaRestore.targetBoard;
+        const enemyRavenaRestore = restoreRavenaTargets(newEnemyBoard, newPlayerBoard);
+        newEnemyBoard = enemyRavenaRestore.ravenaBoard;
+        newPlayerBoard = enemyRavenaRestore.targetBoard;
+
+        const cleanupExpiredLinkedTargets = (sourceBoard: TestSlot[], targetBoard: TestSlot[], sourceId: string, expiredKey: string, targetKey: string): { sourceBoard: TestSlot[]; targetBoard: TestSlot[] } => {
+            let nextSourceBoard = sourceBoard;
+            let nextTargetBoard = targetBoard;
+            sourceBoard.forEach(source => {
+                if (source?.card.id !== sourceId || !source.customState?.[expiredKey]) return;
+                const affectedIds = source.customState[targetKey] || [];
+                nextTargetBoard = nextTargetBoard.map(unit => {
+                    if (!unit || !affectedIds.includes(unit.id)) return unit;
+                    return {
+                        ...unit,
+                        isStunned: false,
+                        isSilenced: false,
+                        statusEffect: undefined,
+                        statusText: undefined,
+                        effectTurns: undefined
+                    };
+                });
+                nextSourceBoard = nextSourceBoard.map(unit => {
+                    if (unit?.id !== source.id) return unit;
+                    const nextCustomState = { ...(unit.customState || {}) };
+                    delete nextCustomState[expiredKey];
+                    delete nextCustomState[targetKey];
+                    return { ...unit, customState: nextCustomState };
+                });
+            });
+            return { sourceBoard: nextSourceBoard, targetBoard: nextTargetBoard };
+        };
+
+        let linkedCleanup = cleanupExpiredLinkedTargets(newPlayerBoard, newEnemyBoard, '36', 'thorExpired', 'thorAffectedIds');
+        newPlayerBoard = linkedCleanup.sourceBoard;
+        newEnemyBoard = linkedCleanup.targetBoard;
+        linkedCleanup = cleanupExpiredLinkedTargets(newEnemyBoard, newPlayerBoard, '36', 'thorExpired', 'thorAffectedIds');
+        newEnemyBoard = linkedCleanup.sourceBoard;
+        newPlayerBoard = linkedCleanup.targetBoard;
+        linkedCleanup = cleanupExpiredLinkedTargets(newPlayerBoard, newEnemyBoard, '51', 'magnetoExpired', 'magnetoAffectedIds');
+        newPlayerBoard = linkedCleanup.sourceBoard;
+        newEnemyBoard = linkedCleanup.targetBoard;
+        linkedCleanup = cleanupExpiredLinkedTargets(newEnemyBoard, newPlayerBoard, '51', 'magnetoExpired', 'magnetoAffectedIds');
+        newEnemyBoard = linkedCleanup.sourceBoard;
+        newPlayerBoard = linkedCleanup.targetBoard;
 
         if (nextTurnNumber % 3 === 0) {
             const revealFaceDown = (board: TestSlot[]): { board: TestSlot[]; revealed?: TestUnit } => {
@@ -1974,6 +2075,42 @@ export const TestLab: React.FC = () => {
             }
         }
 
+        let lanternDamageReduction = 0;
+        const activeLantern = defenderBoardArray.find(u =>
+            u?.card.id === '90' &&
+            u.effectTurns !== undefined &&
+            u.effectTurns > 0 &&
+            u.customState?.lanternManual &&
+            !u.customState?.lanternAttackedThisTurn
+        );
+        if (activeLantern) {
+            const choice = window.prompt('[LANTERNA VERDE] 1 = Interceptar (-1200 dano), 2 = Contra-atacar (ignora dano e causa 1200).');
+            if (choice === '1' || choice === '2') {
+                const nextDefBoard = defenderBoardArray.map(unit => unit?.id === activeLantern.id ? {
+                    ...unit,
+                    customState: {
+                        ...(unit.customState || {}),
+                        lanternAttackedThisTurn: true
+                    }
+                } : unit);
+                if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
+                if (choice === '2') {
+                    const nextAttBoard = attackerBoard.map(unit => {
+                        if (unit?.id !== attacker.id) return unit;
+                        const nextHealth = unit.currentHealth - 1200;
+                        return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+                    });
+                    if (attackMode.attackerBoard === 'player') setPlayerBoard(nextAttBoard); else setEnemyBoard(nextAttBoard);
+                    setAttackMode(null);
+                    setSelectedSlot(null);
+                    log('[LANTERNA VERDE] Contra-ataque manual causou 1200 e ignorou o dano.');
+                    return;
+                }
+                lanternDamageReduction = 1200;
+                log('[LANTERNA VERDE] Interceptacao manual reduziu 1200 do dano.');
+            }
+        }
+
         if (defender.customState?.hitStance && defender.customState?.hitCharges && defender.customState.hitCharges > 0) {
             const nextDefBoard = defenderBoardArray.map(unit => unit?.id === defender.id ? {
                 ...unit,
@@ -2017,7 +2154,7 @@ export const TestLab: React.FC = () => {
             if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
         }
 
-        let attackerDamage = attacker.currentAttack; // ATK do atacante
+        let attackerDamage = Math.max(0, attacker.currentAttack - lanternDamageReduction); // ATK do atacante
         if (defender.customState?.damageReduction) {
             attackerDamage = Math.floor(attackerDamage * defender.customState.damageReduction);
         }
@@ -2110,6 +2247,30 @@ export const TestLab: React.FC = () => {
             newEBoard = newEBoard.map((u, i) => (u?.id === attacker.id ? (isAttackerKilled ? processDeath(u, 'enemy', i) : u) : u));
             // Defensor (Player)
             newPBoard = newPBoard.map((u, i) => (i === targetIndex ? (isDefenderKilled ? processDeath(u!, 'player', i) : (u ? { ...u, currentHealth: nextDefenderHealth, card: { ...u.card, def: nextDefenderHealth } } : null)) : u));
+        }
+        if (!isDefenderKilled && defender.card.id === '95' && defender.customState?.ravenaAbsorptionTargets) {
+            const damageTaken = Math.max(0, defender.currentHealth - nextDefenderHealth);
+            if (damageTaken > 0) {
+                const boardArr = targetBoard === 'player' ? newPBoard : newEBoard;
+                const targetCount = defender.customState.ravenaAbsorptionTargets.length || 1;
+                const baseLoss = Math.floor(damageTaken / targetCount);
+                const remainder = damageTaken % targetCount;
+                const nextBoard = boardArr.map(unit => {
+                    if (unit?.id !== defender.id) return unit;
+                    return {
+                        ...unit,
+                        customState: {
+                            ...(unit.customState || {}),
+                            ravenaAbsorptionTargets: unit.customState.ravenaAbsorptionTargets.map((target: any, index: number) => ({
+                                ...target,
+                                remaining: Math.max(0, target.remaining - baseLoss - (index < remainder ? 1 : 0))
+                            }))
+                        }
+                    };
+                });
+                if (targetBoard === 'player') newPBoard = nextBoard; else newEBoard = nextBoard;
+                log(`[RAVENA] Dano recebido reduziu a devolucao em ${damageTaken}.`);
+            }
         }
         if (attacker.customState?.attackCostDef) {
             const boardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
@@ -2262,17 +2423,23 @@ export const TestLab: React.FC = () => {
             const attIdx = attackerBoardArr.findIndex(u => u?.id === attacker.id);
             if (attIdx !== -1 && attackerBoardArr[attIdx]) {
                 const attUnit = { ...attackerBoardArr[attIdx]! };
-                const nextAttack = Math.floor(attUnit.currentAttack * 1.2);
+                const baseHela = initialCards.find(card => card.id === attUnit.card.id);
+                const defeatedBase = initialCards.find(card => card.id === defender.card.id);
+                const bonusGain = defeatedBase?.isVillain || defender.card.isVillain ? 20 : 10;
+                const nextBonus = Math.min(100, (attUnit.customState?.helaAtkBonusPercent || 0) + bonusGain);
+                const nextAttack = Math.floor((baseHela?.atk || attUnit.currentAttack) * (1 + nextBonus / 100));
                 attackerBoardArr[attIdx] = {
                     ...attUnit,
-                    originalAttack: attUnit.originalAttack ?? attUnit.currentAttack,
                     currentAttack: nextAttack,
                     card: { ...attUnit.card, atk: nextAttack },
-                    effectTurns: 3,
-                    statusText: 'HELA +20% AT'
+                    customState: {
+                        ...(attUnit.customState || {}),
+                        helaAtkBonusPercent: nextBonus
+                    },
+                    statusText: `HELA +${nextBonus}% AT`
                 };
                 if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
-                console.log('[B-93] Hela ganhou +20% AT por 3T ao derrotar inimigo', { nextAttack });
+                console.log('[B-93] Hela ganhou AT permanente ao derrotar inimigo', { nextAttack, nextBonus });
             }
         }
 
@@ -2979,10 +3146,15 @@ export const TestLab: React.FC = () => {
             const close = () => {};
             if (id === '25') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: unit.currentAttack * 2, isImmune: true, effectTurns: 3, statusText: 'PRIME 3T', customState: { ...(unit.customState || {}), bypassShields: true }, card: { ...unit.card, atk: unit.currentAttack * 2 } })); close(); return; }
             if (id === '26') {
+                if (source.customState?.uiKamehamehaUsed) {
+                    log('[GOKU UI] Kamehameha ja foi usado.');
+                    close(); return;
+                }
                 updateSourceUnit(unit => ({ ...unit, isReady: true, isImmune: true, statusEffect: 'immune', effectTurns: 3, statusText: 'UI 3T', customState: { ...(unit.customState || {}), uiKamehamehaActive: true } }));
                 console.log('[B-26] Goku UI ativou imunidade real', { sourceId: source.card.id });
                 setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
                     setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId && !unit.isImmune && unit.statusEffect !== 'immune' ? null : unit));
+                    updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), uiKamehamehaActive: false, uiKamehamehaUsed: true } }));
                     setInteractionMode({ type: 'IDLE' });
                 } });
                 close(); return;
@@ -2993,14 +3165,16 @@ export const TestLab: React.FC = () => {
                 updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, originalHealth: unit.originalHealth ?? unit.currentHealth, currentAttack: unit.currentAttack * 2, currentHealth: unit.currentHealth * 2, effectTurns: 3, statusText: 'FREEZA STANCE', customState: { ...(unit.customState || {}), freezaStance: true }, card: { ...unit.card, atk: unit.currentAttack * 2, def: unit.currentHealth * 2 } })); close(); return;
             }
             if (id === '34') {
-                if (source.abilityCooldown && source.abilityCooldown > 0) { log('[SAITAMA] Cooldown ativo.'); close(); return; }
-                updateSourceUnit(unit => ({ ...unit, abilityCooldown: 4, statusText: 'CD 4T' }));
+                if ((source.customState?.cooldown || 0) > 0) { log('[SAITAMA] Cooldown ativo.'); close(); return; }
                 const selectSaitamaTarget = (targetId: string) => {
                     const target = opponentBoardState.find(unit => unit?.id === targetId);
-                    if (target && (((target.card as any).tier === 'divino') || (target.card as any).tier === 'Divino' || target.card.rarity === 'Supremo')) {
-                        log('Ineficaz');
+                    const baseTarget = target ? initialCards.find(card => card.id === target.card.id) : undefined;
+                    const targetAttack = Math.max(target?.currentAttack || 0, baseTarget?.atk || 0);
+                    if (target && (target.card.rarity === 'Supremo' || targetAttack >= 3200)) {
+                        log('[SAITAMA] Alvo Divino/Supremo bloqueado. Escolha outro alvo.');
                         return;
                     }
+                    updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), cooldown: 4 }, statusText: 'CD 4T' }));
                     removeOpponentById(targetId);
                     console.log('[B-34] Saitama eliminou alvo', { targetId });
                     setInteractionMode({ type: 'IDLE' });
@@ -3015,10 +3189,14 @@ export const TestLab: React.FC = () => {
                     setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId ? null : unit));
                     console.log('[B-36] Thor eliminou alvo imediatamente', { targetId });
                     if (selectedTargets.length >= 3) {
+                        const affectedIds = opponentBoardState
+                            .filter(unit => unit && !selectedTargets.includes(unit.id))
+                            .map(unit => unit!.id);
                         setOpponentBoardState(prev => prev.map(unit => {
                             if (!unit) return unit;
                             return { ...unit, isSilenced: true, effectTurns: 2, statusText: 'SILENCED' };
                         }));
+                        updateSourceUnit(unit => ({ ...unit, effectTurns: 2, statusText: 'THOR 2T', customState: { ...(unit.customState || {}), thorAffectedIds: affectedIds } }));
                         setInteractionMode({ type: 'IDLE' });
                     } else {
                         setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectThorTarget }), 0);
@@ -3064,6 +3242,7 @@ export const TestLab: React.FC = () => {
                     setOpponentBoardState(prev => prev.map(unit => unit && unit.id === targetId ? { ...unit, isStunned: true, effectTurns: 2, statusText: 'Magnetizado' } : unit));
                     console.log('[B-51] Magneto paralisou alvo imediatamente', { targetId });
                     if (selectedTargets.length >= 2) {
+                        updateSourceUnit(unit => ({ ...unit, effectTurns: 2, statusText: 'MAGNETO 2T', customState: { ...(unit.customState || {}), magnetoAffectedIds: [...selectedTargets] } }));
                         setInteractionMode({ type: 'IDLE' });
                     } else {
                         setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMagnetoTarget }), 0);
@@ -3155,8 +3334,33 @@ export const TestLab: React.FC = () => {
                     if (selectedTargets.length >= 2) {
                         const targets = opponentBoardState.filter((unit): unit is TestUnit => !!unit && selectedTargets.includes(unit.id));
                         const bonus = targets.reduce((sum, unit) => sum + unit.currentAttack, 0);
-                        setOpponentBoardState(prev => prev.map(unit => unit && selectedTargets.includes(unit.id) ? { ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: 0, isSilenced: true, effectTurns: 2, statusText: 'AT ABSORVIDO', card: { ...unit.card, atk: 0 } } : unit));
-                        updateSourceUnit(unit => ({ ...unit, originalHealth: unit.originalHealth ?? unit.currentHealth, currentHealth: unit.currentHealth + bonus, effectTurns: 2, statusText: 'RAVENA 2T', card: { ...unit.card, def: unit.currentHealth + bonus } }));
+                        const storedTargets = targets.map(unit => ({ id: unit.id, stolen: unit.currentAttack, remaining: unit.currentAttack }));
+                        setOpponentBoardState(prev => prev.map(unit => unit && selectedTargets.includes(unit.id) ? {
+                            ...unit,
+                            originalAttack: unit.originalAttack ?? unit.currentAttack,
+                            currentAttack: 0,
+                            isSilenced: true,
+                            effectTurns: 2,
+                            statusText: 'AT ABSORVIDO',
+                            customState: {
+                                ...(unit.customState || {}),
+                                ravenaAbsorbed: true,
+                                ravenaSourceId: source.id
+                            },
+                            card: { ...unit.card, atk: 0 }
+                        } : unit));
+                        updateSourceUnit(unit => ({
+                            ...unit,
+                            originalHealth: unit.originalHealth ?? unit.currentHealth,
+                            currentHealth: unit.currentHealth + bonus,
+                            effectTurns: 2,
+                            statusText: 'RAVENA 2T',
+                            customState: {
+                                ...(unit.customState || {}),
+                                ravenaAbsorptionTargets: storedTargets
+                            },
+                            card: { ...unit.card, def: unit.currentHealth + bonus }
+                        }));
                         console.log('[B-95] Ravena absorveu e subtraiu AT dos alvos', { selectedTargets, bonus });
                         setInteractionMode({ type: 'IDLE' });
                     } else {
@@ -4412,7 +4616,6 @@ export const TestLab: React.FC = () => {
                 onClick={(e) => {
                     if (slot && board !== 'hand' && interactionMode.type === 'SELECTING_ABILITY_TARGET') {
                         interactionMode.abilityCallback((slot as TestUnit).id);
-                        setInteractionMode({ type: 'IDLE' });
                         return;
                     }
                     if (slot === null && selectedCard && selectedCard.owner === board) {

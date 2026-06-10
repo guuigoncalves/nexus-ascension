@@ -39,6 +39,7 @@ export interface Card {
     atk?: number; // Opcional pois cartas de Efeito não têm ATK
     def?: number; // Opcional pois cartas de Efeito e Divinos não têm DEF
     image: string;
+    isVillain?: boolean;
     description?: string;
     ability?: string;
     effects?: CardEffect[];
