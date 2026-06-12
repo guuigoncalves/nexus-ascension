@@ -115,6 +115,7 @@ export const TestLab: React.FC = () => {
         onSelect: (card: any) => void;
     } | null>(null);
     const [interactionMode, setInteractionModeState] = useState<{ type: 'IDLE' } | { type: 'SELECTING_ABILITY_TARGET'; sourceId: string; abilityCallback: (id: string) => void }>({ type: 'IDLE' });
+    const [lanternDefensePrompt, setLanternDefensePrompt] = useState<{ activeLanternId: string; targetBoard: 'player' | 'enemy'; targetIndex: number } | null>(null);
     const legacySetupIds = useMemo(() => ['28', '29', '35', '86', '87', '151'], []);
     const greenStatusIds = useMemo(() => new Set([
         '11', '13', '18', '25', '27', '28', '29', '31', '35', '36', '47', '51', '52', '53', '55', '56', '57', '59', '60', '86', '87', '91', '92', '94', '126', '127', '131', '132', '133', '136', '137', '138', '139', '144', '145', '146', '148', '150', '151', '152', '154', '157', '158', '159', '160', '161', '162', '163', '165', '172', '173', '175', '189', '190', '191', '192', '193', '194', '211', '212', '213', '214', 'TOK_SHENLONG'
@@ -174,7 +175,8 @@ export const TestLab: React.FC = () => {
     const validatedCards = useMemo(() => [
         '11', '13', '18', '159', '160', '161', '162', // Paladinos + Iniciais
         '189', '190', '191', '192', '193', '194', '195', // Série Marvel
-        '211', '212', '213', '214' // Outros
+        '211', '212', '213', '214', // Outros
+        '26', '33', '34', '76', '93', '95', '36', '51'
     ], []);
 
     const universeOptions = useMemo(() => Array.from(new Set(cards.map(c => c.universe).filter(Boolean))).sort(), [cards]);
@@ -1048,7 +1050,7 @@ export const TestLab: React.FC = () => {
     const handleSetup = useCallback(() => {
         const newPBoard = Array(14).fill(null);
         const newPlayerHand = Array(8).fill(null);
-        const setupIds = ['26', '33', '34', '76', '90', '93', '95', '36', '51'];
+        const setupIds = ['90', '49', '88', '89', '130', '50'];
         const setupCards = setupIds
             .map(id => initialCards.find(card => card.id === id))
             .filter((card): card is NonNullable<typeof card> => !!card);
@@ -1072,8 +1074,10 @@ export const TestLab: React.FC = () => {
     }, [enemyBoard, log, saveHistory]);
 
     const handleNormalSetup = useCallback(() => {
-        const playerSetupIds = ['26', '33', '34', '76', '90', '93', '95', '36', '51'];
+        const playerSetupIds = ['90', '49', '88', '89', '130', '50'];
+        const enemyRarityOrder = ['Supremo', 'Destruidor', 'Lendário', 'Titã', 'Elite', 'Veterano', 'Gladiador'];
         const newPlayerBoard = Array(14).fill(null);
+        const newEnemyBoard = Array(14).fill(null);
         const emptyHand = Array(8).fill(null);
 
         playerSetupIds.forEach((id, index) => {
@@ -1083,9 +1087,28 @@ export const TestLab: React.FC = () => {
             }
         });
 
+        enemyRarityOrder.forEach((rarity, rarityIndex) => {
+            const rarityCards = initialCards.filter(card =>
+                card.rarity === rarity &&
+                card.atk &&
+                Number(card.atk) > 0 &&
+                card.def &&
+                Number(card.def) > 0 &&
+                !card.id.startsWith('TOK_')
+            );
+            const start = rarityCards.length > 0 ? (setupRotationIndex * 2) % rarityCards.length : 0;
+            const rotatedCards = [...rarityCards.slice(start), ...rarityCards.slice(0, start)].slice(0, 2);
+            rotatedCards.forEach((card, cardIndex) => {
+                newEnemyBoard[(rarityIndex * 2) + cardIndex] = createUnit(card);
+            });
+        });
+
         setPlayerBoard(newPlayerBoard);
+        setEnemyBoard(newEnemyBoard);
         setPlayerHand(emptyHand);
+        setEnemyHand(emptyHand);
         setPlayerHP(8000);
+        setEnemyHP(8000);
         setSelectedCard(null);
         setSelectedSlot(null);
         setAttackMode(null);
@@ -1093,9 +1116,10 @@ export const TestLab: React.FC = () => {
         setInteractionModeState({ type: 'IDLE' });
         setCardPopup(null);
         setShowSetupMenu(false);
-        saveHistory(newPlayerBoard, enemyBoard, emptyHand);
-        log('[SETUP] Rodada atual carregada para o jogador.');
-    }, [enemyBoard, log, saveHistory]);
+        setSetupRotationIndex(prev => prev + 1);
+        saveHistory(newPlayerBoard, newEnemyBoard, emptyHand);
+        log('[SETUP] Normal iniciado.');
+    }, [log, saveHistory, setupRotationIndex]);
 
     // 🔄 SETUP DA ROTAÇÃO DO LABORATÓRIO
     const setupLabRotation = useCallback(() => {
@@ -1486,7 +1510,7 @@ export const TestLab: React.FC = () => {
     }, [playerBoard, enemyBoard, playerHand, log, saveHistory, turnNumber]);
 
 
-    const executeAttack = useCallback((targetBoard: 'player' | 'enemy', targetIndex: number) => {
+    const executeAttack = useCallback((targetBoard: 'player' | 'enemy', targetIndex: number, lanternChoice?: 'counter' | 'defend' | 'none') => {
         if (!attackMode) return;
         const attackerBoard = attackMode.attackerBoard === 'player' ? playerBoard : enemyBoard;
         let attacker = attackerBoard.find(u => u?.id === attackMode.attackerId);
@@ -2083,8 +2107,16 @@ export const TestLab: React.FC = () => {
             !u.customState?.lanternAttackedThisTurn
         );
         if (activeLantern) {
-            const choice = window.prompt('[LANTERNA VERDE] 1 = Interceptar (-1200 dano), 2 = Contra-atacar (ignora dano e causa 1200).');
-            if (choice === '1' || choice === '2') {
+            if (!lanternChoice) {
+                const lanternIndex = defenderBoardArray.findIndex(unit => unit?.id === activeLantern.id);
+                setLanternDefensePrompt({ activeLanternId: activeLantern.id, targetBoard, targetIndex });
+                if (lanternIndex !== -1) setCardPopup({ unit: activeLantern, board: targetBoard, index: lanternIndex });
+                setSelectedSlot(null);
+                log('[LANTERNA VERDE] Escolha a resposta no card.');
+                return;
+            }
+            setLanternDefensePrompt(null);
+            if (lanternChoice === 'counter' || lanternChoice === 'defend') {
                 const nextDefBoard = defenderBoardArray.map(unit => unit?.id === activeLantern.id ? {
                     ...unit,
                     customState: {
@@ -2093,7 +2125,7 @@ export const TestLab: React.FC = () => {
                     }
                 } : unit);
                 if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
-                if (choice === '2') {
+                if (lanternChoice === 'counter') {
                     const nextAttBoard = attackerBoard.map(unit => {
                         if (unit?.id !== attacker.id) return unit;
                         const nextHealth = unit.currentHealth - 1200;
@@ -3138,7 +3170,7 @@ export const TestLab: React.FC = () => {
         }
 
         // 🕸️ HOMEM-ARANHA (ID 139) - Stun Global + Buff
-        const block6Ids = ['25', '26', '27', '31', '33', '34', '36', '49', '51', '52', '55', '56', '57', '59', '60', '63', '76', '77', '90', '91', '93', '94', '95', '128'];
+        const block6Ids = ['25', '26', '27', '31', '33', '34', '36', '49', '50', '51', '52', '55', '56', '57', '59', '60', '63', '76', '77', '88', '89', '90', '91', '93', '94', '95', '128', '130'];
         if (block6Ids.includes(source.card.id)) {
             const id = source.card.id;
             const close = () => {};
@@ -3206,26 +3238,47 @@ export const TestLab: React.FC = () => {
                 let firstTargetAtk = 0;
                 const selectMarvelTarget = (targetId: string) => {
                     const target = opponentBoardState.find(unit => unit?.id === targetId);
-                    if (!target || (target.card.level && target.card.level > 7)) {
-                        log('Alvo inválido! Somente nível 7 ou inferior.');
+                    const targetLevel = target?.card.level ?? target?.card.stars;
+                    if (!target || targetLevel === undefined || targetLevel > 7) {
+                        log('Alvo invalido! Somente nivel/estrelas 7 ou inferior.');
                         setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMarvelTarget }), 0);
                         return;
                     }
                     if (!selectedTargets.includes(targetId)) {
                         selectedTargets.push(targetId);
-                        if (selectedTargets.length === 1) firstTargetAtk = target.card.atk || target.currentAttack;
+                        if (selectedTargets.length === 1) firstTargetAtk = target.currentAttack;
                     }
                     setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId ? null : unit));
-                    if (selectedTargets.length >= 3 || opponentBoardState.filter(u => u && (!u.card.level || u.card.level <= 7) && !selectedTargets.includes(u.id)).length === 0) {
+                    if (selectedTargets.length >= 3 || opponentBoardState.filter(u => {
+                        const level = u?.card.level ?? u?.card.stars;
+                        return u && level !== undefined && level <= 7 && !selectedTargets.includes(u.id);
+                    }).length === 0) {
                         updateSourceUnit(unit => ({ ...unit, currentAttack: unit.currentAttack + firstTargetAtk, card: { ...unit.card, atk: unit.currentAttack + firstTargetAtk } }));
                         setInteractionMode({ type: 'IDLE' });
-                        log(`[CAPITÃ] Explosão de Fótons! Eliminou alvos e ganhou +${firstTargetAtk} AT.`);
+                        log(`[CAPITA] Explosao de Fotons! Eliminou alvos e ganhou +${firstTargetAtk} AT.`);
                     } else {
                         setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMarvelTarget }), 0);
-                        log(`[CAPITÃ] Selecione mais ${3 - selectedTargets.length} alvo(s) ou cancele.`);
+                        log(`[CAPITA] Selecione mais ${3 - selectedTargets.length} alvo(s) ou cancele.`);
                     }
                 };
                 setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMarvelTarget });
+                close(); return;
+            }
+            if (id === '50') {
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
+                    const target = opponentBoardState.find(unit => unit?.id === targetId);
+                    if (!target) { setInteractionMode({ type: 'IDLE' }); return; }
+                    const subType = String(target.card.subType || '').toLowerCase();
+                    const isMagicTarget = !!target.card.isMagic || !!target.card.isMagical || subType.includes('magico') || target.card.id === '169';
+                    updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), stolenAbilityCardId: target.card.id, stolenAbilityDescription: target.card.description } }));
+                    setOpponentBoardState(prev => prev.map(unit => {
+                        if (unit?.id !== targetId) return unit;
+                        const nextAttack = isMagicTarget ? Math.floor(unit.currentAttack * 0.5) : unit.currentAttack;
+                        const nextHealth = isMagicTarget ? Math.floor(unit.currentHealth * 0.5) : unit.currentHealth;
+                        return { ...unit, currentAttack: nextAttack, currentHealth: nextHealth, isSilenced: true, customState: { ...(unit.customState || {}), hbDisabled: true }, statusText: isMagicTarget ? 'HB OFF / 50%' : 'HB OFF', card: { ...unit.card, atk: nextAttack, def: nextHealth } };
+                    }));
+                    setInteractionMode({ type: 'IDLE' });
+                } });
                 close(); return;
             }
             if (id === '51') {
@@ -3271,6 +3324,17 @@ export const TestLab: React.FC = () => {
             if (id === '63') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), effectTurns: 2, statusText: 'NEXT BLAST', customState: { ...(unit.customState || {}), delayedDamage: 1500 }, card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
             if (id === '76') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), isImmune: true, effectTurns: 3, statusText: 'NARUTO 3T', card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
             if (id === '77') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, originalHealth: unit.originalHealth ?? unit.currentHealth, currentAttack: 2500, currentHealth: 0, effectTurns: 3, statusText: 'SUSANOO 3T', customState: { ...(unit.customState || {}), reflectPlus: 900 }, card: { ...unit.card, atk: 2500, def: 0 } })); close(); return; }
+            if (id === '88') { setOpponentBoardState(prev => prev.map(unit => unit && (unit.currentAttack <= 900 || unit.currentHealth <= 900) ? null : unit)); close(); return; }
+            if (id === '89') {
+                updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, originalHealth: unit.originalHealth ?? unit.currentHealth, currentAttack: Math.floor(unit.currentAttack * 1.5), currentHealth: Math.floor(unit.currentHealth * 1.5), effectTurns: 3, statusText: 'UPGRADE 3T', card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5), def: Math.floor(unit.currentHealth * 1.5) } }));
+                setOpponentBoardState(prev => prev.map(unit => {
+                    if (!unit) return unit;
+                    const subType = String(unit.card.subType || '').toLowerCase();
+                    const isCybernetic = !!unit.card.isCyborg || !!unit.card.isCybernetic || subType.includes('cibernetico') || unit.card.id === '61' || unit.card.id === '62';
+                    return isCybernetic ? { ...unit, isStunned: true, isSilenced: true, effectTurns: 3, statusText: 'CYBER OFF' } : unit;
+                }));
+                close(); return;
+            }
             if (id === '90') {
                 if (!source.customState?.lanternManual) {
                     updateSourceUnit(unit => ({ ...unit, effectTurns: 3, statusText: 'LANTERN MANUAL 3T', customState: { ...(unit.customState || {}), lanternManual: true } }));
@@ -3282,21 +3346,7 @@ export const TestLab: React.FC = () => {
                     close(); return;
                 }
                 if (currentTurn !== 'player' && isSourcePlayer) {
-                    const choice = window.prompt('[LANTERNA VERDE] 1 = Interceptar (-1200 dano), 2 = Contra-atacar (1200 no atacante).');
-                    if (choice !== '1' && choice !== '2') { close(); return; }
-                    setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
-                        const setter = choice === '1' ? setSourceBoardState : setOpponentBoardState;
-                        setter(prev => prev.map(unit => {
-                            if (unit?.id !== targetId) return unit;
-                            if (choice === '1') {
-                                return { ...unit, currentHealth: unit.currentHealth + 1200, card: { ...unit.card, def: unit.currentHealth + 1200 } };
-                            }
-                            const nextHealth = unit.currentHealth - 1200;
-                            return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
-                        }));
-                        updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), lanternAttackedThisTurn: true } }));
-                        setInteractionMode({ type: 'IDLE' });
-                    } });
+                    log('[LANTERNA VERDE] Aguarde um ataque para escolher a defesa no card.');
                     close(); return;
                 }
                 setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
@@ -3307,6 +3357,14 @@ export const TestLab: React.FC = () => {
                     }));
                     updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), lanternAttackedThisTurn: true } }));
                     console.log('[B-90] Lanterna Verde disparou AT manual de 1200', { targetId });
+                    setInteractionMode({ type: 'IDLE' });
+                } });
+                close(); return;
+            }
+            if (id === '130') {
+                updateSourceUnit(unit => ({ ...unit, isImmune: true, effectTurns: 4, statusText: 'COSMI-ROD 4T' }));
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
+                    removeOpponentById(targetId);
                     setInteractionMode({ type: 'IDLE' });
                 } });
                 close(); return;
@@ -5247,12 +5305,20 @@ export const TestLab: React.FC = () => {
                                             [HB]
                                         </button>
                                     )}
-                                    <button
-                                        onClick={() => executeEffect(cardPopup.board, cardPopup.index, cardPopup.unit)}
-                                        className="w-full mt-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-[9px] font-black text-white uppercase rounded-lg shadow-lg hover:shadow-purple-500/50"
-                                    >
-                                        {cardPopup.unit.card.id === '26' && (cardPopup.unit.counters?.dodge || 0) > 0 && !cardPopup.unit.customState?.uiKamehamehaUsed ? 'Kamehameha' : cardPopup.unit.card.id === '90' && cardPopup.unit.customState?.lanternManual ? 'Acao Construto' : cardPopup.unit.card.id === '93' && cardPopup.unit.customState?.helaActive && !cardPopup.unit.customState?.helaStealUsed ? 'Roubar Carta' : cardPopup.unit.card.id === '36' && cardPopup.unit.customState?.thorManual && !cardPopup.unit.customState?.thorManualUsed ? 'Eliminar Oponente' : 'USAR EFEITO'}
-                                    </button>
+                                    {cardPopup.unit.card.id === '90' && lanternDefensePrompt?.activeLanternId === cardPopup.unit.id ? (
+                                        <div className="mt-3 grid grid-cols-3 gap-1">
+                                            <button onClick={() => executeAttack(lanternDefensePrompt.targetBoard, lanternDefensePrompt.targetIndex, 'counter')} className="py-2 bg-emerald-600/80 text-[8px] font-black text-white uppercase rounded-lg hover:bg-emerald-500">Ignorar e Atacar</button>
+                                            <button onClick={() => executeAttack(lanternDefensePrompt.targetBoard, lanternDefensePrompt.targetIndex, 'defend')} className="py-2 bg-blue-600/80 text-[8px] font-black text-white uppercase rounded-lg hover:bg-blue-500">Defender</button>
+                                            <button onClick={() => executeAttack(lanternDefensePrompt.targetBoard, lanternDefensePrompt.targetIndex, 'none')} className="py-2 bg-zinc-700/80 text-[8px] font-black text-white uppercase rounded-lg hover:bg-zinc-600">Nada</button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => executeEffect(cardPopup.board, cardPopup.index, cardPopup.unit)}
+                                            className="w-full mt-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-[9px] font-black text-white uppercase rounded-lg shadow-lg hover:shadow-purple-500/50"
+                                        >
+                                            {cardPopup.unit.card.id === '26' && (cardPopup.unit.counters?.dodge || 0) > 0 && !cardPopup.unit.customState?.uiKamehamehaUsed ? 'Kamehameha' : cardPopup.unit.card.id === '90' && cardPopup.unit.customState?.lanternManual ? 'Acao Construto' : cardPopup.unit.card.id === '93' && cardPopup.unit.customState?.helaActive && !cardPopup.unit.customState?.helaStealUsed ? 'Roubar Carta' : cardPopup.unit.card.id === '36' && cardPopup.unit.customState?.thorManual && !cardPopup.unit.customState?.thorManualUsed ? 'Eliminar Oponente' : 'USAR EFEITO'}
+                                        </button>
+                                    )}
                                 </>
                             ) : (
                                 <div className="flex-1 flex flex-col items-center justify-center text-white/20">
@@ -5366,8 +5432,8 @@ export const TestLab: React.FC = () => {
                                                         {/* Info */}
                                                         <div className="flex-1 min-w-0">
                                                             <div className={`text-[9px] font-bold leading-tight flex items-center gap-1 ${isTested ? 'text-green-500 line-through' : 'text-white group-hover:text-purple-300'}`}>
+                                                                {isValidated && <span className="bg-green-500 w-2 h-2 rounded-full inline-block mr-1" title="Validado" />}
                                                                 {card.name}
-                                                                {isValidated && <span className="text-green-400" title="Validado">✅</span>}
                                                             </div>
                                                             <div className="text-[7px] text-white/30 mt-1 flex justify-between items-center">
                                                                 <span>ID {card.id}</span>
