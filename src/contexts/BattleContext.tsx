@@ -854,15 +854,6 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 if ((updated.counters?.lanternTurns || 0) > 0) {
                     updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
                 }
-                if ((updated.counters?.helaBuffTurns || 0) > 0) {
-                    const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
-                    updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
-                    if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
-                        updated.currentAttack = updated.originalAttack;
-                        updated.originalAttack = undefined;
-                    }
-                }
-
                 return updated;
             };
 
@@ -902,15 +893,6 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if ((updated.counters?.lanternTurns || 0) > 0) {
                         updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
                     }
-                    if ((updated.counters?.helaBuffTurns || 0) > 0) {
-                        const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
-                        updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
-                        if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
-                            updated.currentAttack = updated.originalAttack;
-                            updated.originalAttack = undefined;
-                        }
-                    }
-
                     if (nextPlayer === 'player') {
                         updated.canAttack = !updated.isStunned; // Start of player turn
                         updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
@@ -961,15 +943,6 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if ((updated.counters?.lanternTurns || 0) > 0) {
                         updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
                     }
-                    if ((updated.counters?.helaBuffTurns || 0) > 0) {
-                        const nextHelaTurns = Math.max(0, (updated.counters?.helaBuffTurns || 0) - 1);
-                        updated.counters = { ...updated.counters, helaBuffTurns: nextHelaTurns };
-                        if (nextHelaTurns === 0 && updated.originalAttack !== undefined) {
-                            updated.currentAttack = updated.originalAttack;
-                            updated.originalAttack = undefined;
-                        }
-                    }
-
                     if (nextPlayer === 'opponent') {
                         updated.canAttack = !updated.isStunned; // Start of opponent turn
                         updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
@@ -2146,12 +2119,14 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null; // Destroyed
                         if (result.defenderDies && u.cardId === '93') {
-                            const nextAttack = Math.floor(u.currentAttack * 1.2);
+                            const baseHela = cards.find(c => c.id === u.cardId);
+                            const nextStacks = Math.min(10, (u.counters?.helaAtkStacks || 0) + 1);
+                            const nextAttack = Math.floor((baseHela?.atk || u.currentAttack) * (1 + nextStacks * 0.1));
                             return {
                                 ...u,
-                                originalAttack: u.originalAttack ?? u.currentAttack,
                                 currentAttack: nextAttack,
-                                counters: { ...u.counters, helaBuffTurns: 3 },
+                                atk: nextAttack,
+                                counters: { ...u.counters, helaAtkStacks: nextStacks },
                                 remainingAttacks: attackerRemainingAttacks,
                                 canAttack: attackerRemainingAttacks > 0
                             };
@@ -2185,12 +2160,14 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null;
                         if (result.defenderDies && u.cardId === '93') {
-                            const nextAttack = Math.floor(u.currentAttack * 1.2);
+                            const baseHela = cards.find(c => c.id === u.cardId);
+                            const nextStacks = Math.min(10, (u.counters?.helaAtkStacks || 0) + 1);
+                            const nextAttack = Math.floor((baseHela?.atk || u.currentAttack) * (1 + nextStacks * 0.1));
                             return {
                                 ...u,
-                                originalAttack: u.originalAttack ?? u.currentAttack,
                                 currentAttack: nextAttack,
-                                counters: { ...u.counters, helaBuffTurns: 3 },
+                                atk: nextAttack,
+                                counters: { ...u.counters, helaAtkStacks: nextStacks },
                                 remainingAttacks: attackerRemainingAttacks,
                                 canAttack: attackerRemainingAttacks > 0
                             };
@@ -2218,8 +2195,11 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 });
 
                 const newLogEntry = normalizeBattleText(`${attacker!.name} atacou ${target!.name} (AT:${AT} vs DF:${DF})`);
-                const newPlayerGraveyard = result.attackerDies ? [...prev.playerGraveyard, { ...attacker }] : prev.playerGraveyard;
-                const newOpponentGraveyard = result.defenderDies ? [...prev.opponentGraveyard, { ...target }] : prev.opponentGraveyard;
+                const resetDeathCooldown = (unit: Unit): Unit => unit.cardId === '34'
+                    ? { ...unit, counters: { ...unit.counters, saitamaCooldown: 0 } }
+                    : { ...unit };
+                const newPlayerGraveyard = result.attackerDies ? [...prev.playerGraveyard, resetDeathCooldown(attacker)] : prev.playerGraveyard;
+                const newOpponentGraveyard = result.defenderDies ? [...prev.opponentGraveyard, resetDeathCooldown(target)] : prev.opponentGraveyard;
 
                 return {
                     ...prev,

@@ -49,6 +49,7 @@ interface TestUnit {
     stunTurns?: number; // Spider-Man Stun Duration
     hasAttacked?: boolean;
     isIntangible?: boolean;
+    counters?: { [key: string]: number };
 }
 
 
@@ -1046,7 +1047,6 @@ export const TestLab: React.FC = () => {
 
     const handleSetup = useCallback(() => {
         const newPBoard = Array(14).fill(null);
-        const newEBoard = Array(14).fill(null);
         const newPlayerHand = Array(8).fill(null);
         const setupIds = ['26', '33', '34', '76', '90', '93', '95', '36', '51'];
         const setupCards = setupIds
@@ -1058,22 +1058,18 @@ export const TestLab: React.FC = () => {
         });
 
         setPlayerBoard(newPBoard);
-        setEnemyBoard(newEBoard);
-
-        setPlayerBoard(newPBoard);
-        setEnemyBoard(newEBoard);
         setPlayerHand(newPlayerHand);
-        setEnemyHand(Array(8).fill(null));
         // setPlayerGraveyard(newPlayerGraveyard); // Preservado V4.8
         // setEnemyGraveyard(newEnemyGraveyard); // Preservado V4.8
         setSelectedCard(null);
         setSelectedSlot(null);
         setAttackMode(null);
         setEffectMode(null);
+        setCurrentTurn('player');
         setShowSetupMenu(false);
-        saveHistory(newPBoard, newEBoard, newPlayerHand);
-        log('🚀 SETUP INICIADO!');
-    }, [log, saveHistory]);
+        saveHistory(newPBoard, enemyBoard, newPlayerHand);
+        log('[SETUP] Rodada atual carregada para o jogador.');
+    }, [enemyBoard, log, saveHistory]);
 
     const handleNormalSetup = useCallback(() => {
         const playerSetupIds = ['25', '52'];
@@ -1183,15 +1179,25 @@ export const TestLab: React.FC = () => {
                     };
                 }
                 if (updated.customState?.cooldown && updated.customState.cooldown > 0) {
+                    const nextCooldown = updated.customState.cooldown - 1;
                     updated.customState = {
                         ...(updated.customState || {}),
-                        cooldown: updated.customState.cooldown - 1
+                        cooldown: nextCooldown
                     };
+                    if (updated.card.id === '34') {
+                        updated.statusText = nextCooldown > 0 ? `CD ${nextCooldown}T` : undefined;
+                    }
                 }
                 if (updated.customState?.lanternAttackedThisTurn) {
                     updated.customState = {
                         ...(updated.customState || {}),
                         lanternAttackedThisTurn: false
+                    };
+                }
+                if ((updated.counters?.dodge || 0) > 0) {
+                    updated.counters = {
+                        ...updated.counters,
+                        dodge: Math.max(0, (updated.counters?.dodge || 0) - 1)
                     };
                 }
                 if (updated.abilityCooldown && updated.abilityCooldown > 0) {
@@ -1267,6 +1273,7 @@ export const TestLab: React.FC = () => {
                             nextCustomState.uiKamehamehaActive = false;
                             updated.isReady = false;
                             updated.isImmune = false;
+                            updated.counters = { ...(updated.counters || {}), dodge: 0 };
                         }
                         if (unit.card.id === '33') {
                             nextCustomState.freezaStance = false;
@@ -1277,6 +1284,10 @@ export const TestLab: React.FC = () => {
                         if (unit.card.id === '90') {
                             nextCustomState.lanternManual = false;
                             nextCustomState.lanternAttackedThisTurn = false;
+                        }
+                        if (unit.card.id === '36') {
+                            nextCustomState.thorManual = false;
+                            nextCustomState.thorManualUsed = false;
                         }
                         if (unit.card.id === '95' && updated.customState?.ravenaAbsorptionTargets) {
                             nextCustomState.ravenaExpired = true;
@@ -1480,6 +1491,7 @@ export const TestLab: React.FC = () => {
 
         setPlayerBoard(newPlayerBoard);
         setEnemyBoard(newEnemyBoard);
+        setCurrentTurn(prev => prev === 'player' ? 'enemy' : 'player');
         setTurnNumber(nextTurnNumber);
         saveHistory(newPlayerBoard, newEnemyBoard, playerHand);
 
@@ -2424,9 +2436,7 @@ export const TestLab: React.FC = () => {
             if (attIdx !== -1 && attackerBoardArr[attIdx]) {
                 const attUnit = { ...attackerBoardArr[attIdx]! };
                 const baseHela = initialCards.find(card => card.id === attUnit.card.id);
-                const defeatedBase = initialCards.find(card => card.id === defender.card.id);
-                const bonusGain = defeatedBase?.isVillain || defender.card.isVillain ? 20 : 10;
-                const nextBonus = Math.min(100, (attUnit.customState?.helaAtkBonusPercent || 0) + bonusGain);
+                const nextBonus = Math.min(100, (attUnit.customState?.helaAtkBonusPercent || 0) + 10);
                 const nextAttack = Math.floor((baseHela?.atk || attUnit.currentAttack) * (1 + nextBonus / 100));
                 attackerBoardArr[attIdx] = {
                     ...attUnit,
@@ -2732,6 +2742,7 @@ export const TestLab: React.FC = () => {
         }
         const updateSourceUnit = (updater: (unit: TestUnit) => TestUnit) => {
             setSourceBoardState(sourceBoardState.map(unit => unit?.id === source!.id ? updater(unit) : unit));
+            setCardPopup(prev => prev?.unit.id === source!.id ? { ...prev, unit: updater(prev.unit) } : prev);
         };
         const removeOpponentById = (targetId: string) => {
             setOpponentBoardState(opponentBoardState.map(unit => unit?.id === targetId ? null : unit));
@@ -3146,15 +3157,18 @@ export const TestLab: React.FC = () => {
             const close = () => {};
             if (id === '25') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: unit.currentAttack * 2, isImmune: true, effectTurns: 3, statusText: 'PRIME 3T', customState: { ...(unit.customState || {}), bypassShields: true }, card: { ...unit.card, atk: unit.currentAttack * 2 } })); close(); return; }
             if (id === '26') {
+                if (!source.customState?.uiKamehamehaActive) {
+                    updateSourceUnit(unit => ({ ...unit, isReady: true, isImmune: true, statusEffect: 'immune', effectTurns: 3, statusText: 'UI 3T', counters: { ...(unit.counters || {}), dodge: 3 }, customState: { ...(unit.customState || {}), uiKamehamehaActive: true } }));
+                    console.log('[B-26] Goku UI ativou imunidade real', { sourceId: source.card.id });
+                    close(); return;
+                }
                 if (source.customState?.uiKamehamehaUsed) {
                     log('[GOKU UI] Kamehameha ja foi usado.');
                     close(); return;
                 }
-                updateSourceUnit(unit => ({ ...unit, isReady: true, isImmune: true, statusEffect: 'immune', effectTurns: 3, statusText: 'UI 3T', customState: { ...(unit.customState || {}), uiKamehamehaActive: true } }));
-                console.log('[B-26] Goku UI ativou imunidade real', { sourceId: source.card.id });
                 setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
                     setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId && !unit.isImmune && unit.statusEffect !== 'immune' ? null : unit));
-                    updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), uiKamehamehaActive: false, uiKamehamehaUsed: true } }));
+                    updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), uiKamehamehaUsed: true } }));
                     setInteractionMode({ type: 'IDLE' });
                 } });
                 close(); return;
@@ -3183,27 +3197,20 @@ export const TestLab: React.FC = () => {
                 close(); return;
             }
             if (id === '36') {
-                const selectedTargets: string[] = [];
-                const selectThorTarget = (targetId: string) => {
-                    if (!selectedTargets.includes(targetId)) selectedTargets.push(targetId);
+                if (!source.customState?.thorManual) {
+                    updateSourceUnit(unit => ({ ...unit, effectTurns: 2, statusText: 'THOR 2T', customState: { ...(unit.customState || {}), thorManual: true, thorManualUsed: false } }));
+                    close(); return;
+                }
+                if (source.customState?.thorManualUsed) {
+                    log('[THOR] Eliminacao ja foi usada.');
+                    close(); return;
+                }
+                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
                     setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId ? null : unit));
-                    console.log('[B-36] Thor eliminou alvo imediatamente', { targetId });
-                    if (selectedTargets.length >= 3) {
-                        const affectedIds = opponentBoardState
-                            .filter(unit => unit && !selectedTargets.includes(unit.id))
-                            .map(unit => unit!.id);
-                        setOpponentBoardState(prev => prev.map(unit => {
-                            if (!unit) return unit;
-                            return { ...unit, isSilenced: true, effectTurns: 2, statusText: 'SILENCED' };
-                        }));
-                        updateSourceUnit(unit => ({ ...unit, effectTurns: 2, statusText: 'THOR 2T', customState: { ...(unit.customState || {}), thorAffectedIds: affectedIds } }));
-                        setInteractionMode({ type: 'IDLE' });
-                    } else {
-                        setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectThorTarget }), 0);
-                        log(`[THOR] Selecione mais ${3 - selectedTargets.length} alvo(s).`);
-                    }
-                };
-                setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectThorTarget });
+                    updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), thorManualUsed: true } }));
+                    console.log('[B-36] Thor eliminou 1 alvo', { targetId });
+                    setInteractionMode({ type: 'IDLE' });
+                } });
                 close(); return;
             }
             if (id === '49') {
@@ -3284,6 +3291,24 @@ export const TestLab: React.FC = () => {
                 }
                 if (source.customState?.lanternAttackedThisTurn) {
                     log('[LANTERNA VERDE] Ataque extra já foi usado neste turno!');
+                    close(); return;
+                }
+                if (currentTurn !== 'player' && isSourcePlayer) {
+                    const choice = window.prompt('[LANTERNA VERDE] 1 = Interceptar (-1200 dano), 2 = Contra-atacar (1200 no atacante).');
+                    if (choice !== '1' && choice !== '2') { close(); return; }
+                    setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
+                        const setter = choice === '1' ? setSourceBoardState : setOpponentBoardState;
+                        setter(prev => prev.map(unit => {
+                            if (unit?.id !== targetId) return unit;
+                            if (choice === '1') {
+                                return { ...unit, currentHealth: unit.currentHealth + 1200, card: { ...unit.card, def: unit.currentHealth + 1200 } };
+                            }
+                            const nextHealth = unit.currentHealth - 1200;
+                            return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+                        }));
+                        updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), lanternAttackedThisTurn: true } }));
+                        setInteractionMode({ type: 'IDLE' });
+                    } });
                     close(); return;
                 }
                 setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
@@ -5232,7 +5257,7 @@ export const TestLab: React.FC = () => {
                                         onClick={() => executeEffect(cardPopup.board, cardPopup.index, cardPopup.unit)}
                                         className="w-full mt-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-[9px] font-black text-white uppercase rounded-lg shadow-lg hover:shadow-purple-500/50"
                                     >
-                                        {cardPopup.unit.card.id === '90' && cardPopup.unit.customState?.lanternManual ? 'AT Extra' : 'USAR EFEITO'}
+                                        {cardPopup.unit.card.id === '26' && (cardPopup.unit.counters?.dodge || 0) > 0 && !cardPopup.unit.customState?.uiKamehamehaUsed ? 'Kamehameha' : cardPopup.unit.card.id === '90' && cardPopup.unit.customState?.lanternManual ? 'Acao Construto' : cardPopup.unit.card.id === '36' && cardPopup.unit.customState?.thorManual && !cardPopup.unit.customState?.thorManualUsed ? 'Eliminar Oponente' : 'USAR EFEITO'}
                                     </button>
                                 </>
                             ) : (

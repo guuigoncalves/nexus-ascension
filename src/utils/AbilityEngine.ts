@@ -88,6 +88,15 @@ const SpecialAbilities: Record<string, AbilityFactory> = {
         description: 'Soco Avassalador: destruir alvo nao Divino',
         requiresTarget: true
     }],
+    '36': () => [{
+        trigger: 'onActivate',
+        type: 'destroy',
+        target: 'enemy',
+        value: 1,
+        duration: 2,
+        description: 'Tempestade: eliminar 1 oponente',
+        requiresTarget: true
+    }],
     '51': () => [{
         trigger: 'onActivate',
         type: 'silence',
