@@ -1072,10 +1072,8 @@ export const TestLab: React.FC = () => {
     }, [enemyBoard, log, saveHistory]);
 
     const handleNormalSetup = useCallback(() => {
-        const playerSetupIds = ['25', '52'];
-        const enemyRarityOrder = ['Supremo', 'Destruidor', 'Lendário', 'Titã', 'Elite', 'Veterano', 'Gladiador'];
+        const playerSetupIds = ['26', '33', '34', '76', '90', '93', '95', '36', '51'];
         const newPlayerBoard = Array(14).fill(null);
-        const newEnemyBoard = Array(14).fill(null);
         const emptyHand = Array(8).fill(null);
 
         playerSetupIds.forEach((id, index) => {
@@ -1085,39 +1083,19 @@ export const TestLab: React.FC = () => {
             }
         });
 
-        enemyRarityOrder.forEach((rarity, rarityIndex) => {
-            const rarityCards = initialCards.filter(card =>
-                card.rarity === rarity &&
-                card.atk &&
-                Number(card.atk) > 0 &&
-                card.def &&
-                Number(card.def) > 0 &&
-                !card.id.startsWith('TOK_')
-            );
-            const start = rarityCards.length > 0 ? (setupRotationIndex * 2) % rarityCards.length : 0;
-            const rotatedCards = [...rarityCards.slice(start), ...rarityCards.slice(0, start)].slice(0, 2);
-            rotatedCards.forEach((card, cardIndex) => {
-                newEnemyBoard[(rarityIndex * 2) + cardIndex] = createUnit(card);
-            });
-        });
-
         setPlayerBoard(newPlayerBoard);
-        setEnemyBoard(newEnemyBoard);
         setPlayerHand(emptyHand);
-        setEnemyHand(emptyHand);
-        // setPlayerGraveyard([]); // Preservado V4.8
-        // setEnemyGraveyard([]); // Preservado V4.8
         setPlayerHP(8000);
-        setEnemyHP(8000);
         setSelectedCard(null);
         setSelectedSlot(null);
         setAttackMode(null);
         setEffectMode(null);
+        setInteractionModeState({ type: 'IDLE' });
+        setCardPopup(null);
         setShowSetupMenu(false);
-        setSetupRotationIndex(prev => prev + 1);
-        saveHistory(newPlayerBoard, newEnemyBoard, emptyHand);
-        log('[SETUP] Normal iniciado.');
-    }, [log, saveHistory, setupRotationIndex]);
+        saveHistory(newPlayerBoard, enemyBoard, emptyHand);
+        log('[SETUP] Rodada atual carregada para o jogador.');
+    }, [enemyBoard, log, saveHistory]);
 
     // 🔄 SETUP DA ROTAÇÃO DO LABORATÓRIO
     const setupLabRotation = useCallback(() => {
@@ -1284,6 +1262,15 @@ export const TestLab: React.FC = () => {
                         if (unit.card.id === '90') {
                             nextCustomState.lanternManual = false;
                             nextCustomState.lanternAttackedThisTurn = false;
+                        }
+                        if (unit.card.id === '93') {
+                            nextCustomState.helaActive = false;
+                            nextCustomState.helaStealUsed = false;
+                            nextCustomState.helaAtkBonusPercent = 0;
+                            const baseHela = initialCards.find(card => card.id === '93');
+                            if (baseHela) {
+                                updated.currentAttack = baseHela.atk || updated.currentAttack;
+                            }
                         }
                         if (unit.card.id === '36') {
                             nextCustomState.thorManual = false;
@@ -2430,7 +2417,7 @@ export const TestLab: React.FC = () => {
             }
         }
 
-        if (isDefenderKilled && attacker.card.id === '93') {
+        if (isDefenderKilled && attacker.card.id === '93' && attacker.customState?.helaActive) {
             const attackerBoardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
             const attIdx = attackerBoardArr.findIndex(u => u?.id === attacker.id);
             if (attIdx !== -1 && attackerBoardArr[attIdx]) {
@@ -3199,6 +3186,7 @@ export const TestLab: React.FC = () => {
             if (id === '36') {
                 if (!source.customState?.thorManual) {
                     updateSourceUnit(unit => ({ ...unit, effectTurns: 2, statusText: 'THOR 2T', customState: { ...(unit.customState || {}), thorManual: true, thorManualUsed: false } }));
+                    setOpponentBoardState(prev => prev.map(unit => unit ? { ...unit, isSilenced: true, effectTurns: 2, statusText: 'SILENCED' } : unit));
                     close(); return;
                 }
                 if (source.customState?.thorManualUsed) {
@@ -3325,6 +3313,12 @@ export const TestLab: React.FC = () => {
             }
             if (id === '91') { setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { const target = opponentBoardState.find(unit => unit?.id === targetId); if (target) { const absorb = Math.floor(target.currentHealth * 0.5); setOpponentBoardState(opponentBoardState.map(unit => unit?.id === targetId ? { ...unit, currentHealth: unit.currentHealth - absorb, isStunned: true, effectTurns: 2, statusText: 'STUN 2T', card: { ...unit.card, def: unit.currentHealth - absorb } } : unit)); updateSourceUnit(unit => ({ ...unit, currentHealth: unit.currentHealth + absorb, card: { ...unit.card, def: unit.currentHealth + absorb } })); } setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
             if (id === '93') {
+                if (!source.customState?.helaActive) {
+                    const baseHela = initialCards.find(card => card.id === '93');
+                    updateSourceUnit(unit => ({ ...unit, originalAttack: baseHela?.atk ?? unit.currentAttack, effectTurns: 3, statusText: 'HELA 3T', customState: { ...(unit.customState || {}), helaActive: true, helaStealUsed: false, helaAtkBonusPercent: 0 } }));
+                    close(); return;
+                }
+                if (source.customState?.helaStealUsed) { log('[HELA] Roubo ja foi usado.'); close(); return; }
                 const graveyard = isSourcePlayer ? enemyGraveyard : playerGraveyard;
                 if (graveyard.length === 0) { log('[HELA] Cemiterio vazio.'); close(); return; }
                 setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
@@ -3338,7 +3332,7 @@ export const TestLab: React.FC = () => {
                             setSourceBoardState(prev => prev.map((unit, index) => {
                                 if (index === sacrificedIndex) return revived;
                                 if (unit?.id === source.id) {
-                                    return { ...unit, customState: { ...(unit.customState || {}), helaActive: true }, statusText: 'HELA' };
+                                    return { ...unit, customState: { ...(unit.customState || {}), helaActive: true, helaStealUsed: true }, statusText: 'HELA 3T' };
                                 }
                                 return unit;
                             }));
@@ -5257,7 +5251,7 @@ export const TestLab: React.FC = () => {
                                         onClick={() => executeEffect(cardPopup.board, cardPopup.index, cardPopup.unit)}
                                         className="w-full mt-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-[9px] font-black text-white uppercase rounded-lg shadow-lg hover:shadow-purple-500/50"
                                     >
-                                        {cardPopup.unit.card.id === '26' && (cardPopup.unit.counters?.dodge || 0) > 0 && !cardPopup.unit.customState?.uiKamehamehaUsed ? 'Kamehameha' : cardPopup.unit.card.id === '90' && cardPopup.unit.customState?.lanternManual ? 'Acao Construto' : cardPopup.unit.card.id === '36' && cardPopup.unit.customState?.thorManual && !cardPopup.unit.customState?.thorManualUsed ? 'Eliminar Oponente' : 'USAR EFEITO'}
+                                        {cardPopup.unit.card.id === '26' && (cardPopup.unit.counters?.dodge || 0) > 0 && !cardPopup.unit.customState?.uiKamehamehaUsed ? 'Kamehameha' : cardPopup.unit.card.id === '90' && cardPopup.unit.customState?.lanternManual ? 'Acao Construto' : cardPopup.unit.card.id === '93' && cardPopup.unit.customState?.helaActive && !cardPopup.unit.customState?.helaStealUsed ? 'Roubar Carta' : cardPopup.unit.card.id === '36' && cardPopup.unit.customState?.thorManual && !cardPopup.unit.customState?.thorManualUsed ? 'Eliminar Oponente' : 'USAR EFEITO'}
                                     </button>
                                 </>
                             ) : (

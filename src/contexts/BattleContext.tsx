@@ -849,10 +849,24 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                             updated.currentHealth = updated.originalHealth;
                             updated.originalHealth = undefined;
                         }
+                        if (updated.cardId === '93') {
+                            const baseHela = cards.find(c => c.id === '93');
+                            if (baseHela?.atk) {
+                                updated.currentAttack = baseHela.atk;
+                                updated.atk = baseHela.atk;
+                            }
+                            updated.counters = { ...updated.counters, helaAtkStacks: 0, helaTurns: 0, helaStealUsed: 0 };
+                        }
                     }
                 }
                 if ((updated.counters?.lanternTurns || 0) > 0) {
                     updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
+                }
+                if ((updated.counters?.helaTurns || 0) > 0) {
+                    updated.counters = { ...updated.counters, helaTurns: Math.max(0, (updated.counters?.helaTurns || 0) - 1) };
+                }
+                if ((updated.counters?.thorTurns || 0) > 0) {
+                    updated.counters = { ...updated.counters, thorTurns: Math.max(0, (updated.counters?.thorTurns || 0) - 1) };
                 }
                 return updated;
             };
@@ -888,10 +902,24 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                                 updated.currentHealth = updated.originalHealth;
                                 updated.originalHealth = undefined;
                             }
+                            if (updated.cardId === '93') {
+                                const baseHela = cards.find(c => c.id === '93');
+                                if (baseHela?.atk) {
+                                    updated.currentAttack = baseHela.atk;
+                                    updated.atk = baseHela.atk;
+                                }
+                                updated.counters = { ...updated.counters, helaAtkStacks: 0, helaTurns: 0, helaStealUsed: 0 };
+                            }
                         }
                     }
                     if ((updated.counters?.lanternTurns || 0) > 0) {
                         updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
+                    }
+                    if ((updated.counters?.helaTurns || 0) > 0) {
+                        updated.counters = { ...updated.counters, helaTurns: Math.max(0, (updated.counters?.helaTurns || 0) - 1) };
+                    }
+                    if ((updated.counters?.thorTurns || 0) > 0) {
+                        updated.counters = { ...updated.counters, thorTurns: Math.max(0, (updated.counters?.thorTurns || 0) - 1) };
                     }
                     if (nextPlayer === 'player') {
                         updated.canAttack = !updated.isStunned; // Start of player turn
@@ -938,10 +966,24 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                                 updated.currentHealth = updated.originalHealth;
                                 updated.originalHealth = undefined;
                             }
+                            if (updated.cardId === '93') {
+                                const baseHela = cards.find(c => c.id === '93');
+                                if (baseHela?.atk) {
+                                    updated.currentAttack = baseHela.atk;
+                                    updated.atk = baseHela.atk;
+                                }
+                                updated.counters = { ...updated.counters, helaAtkStacks: 0, helaTurns: 0, helaStealUsed: 0 };
+                            }
                         }
                     }
                     if ((updated.counters?.lanternTurns || 0) > 0) {
                         updated.counters = { ...updated.counters, lanternTurns: Math.max(0, (updated.counters?.lanternTurns || 0) - 1) };
+                    }
+                    if ((updated.counters?.helaTurns || 0) > 0) {
+                        updated.counters = { ...updated.counters, helaTurns: Math.max(0, (updated.counters?.helaTurns || 0) - 1) };
+                    }
+                    if ((updated.counters?.thorTurns || 0) > 0) {
+                        updated.counters = { ...updated.counters, thorTurns: Math.max(0, (updated.counters?.thorTurns || 0) - 1) };
                     }
                     if (nextPlayer === 'opponent') {
                         updated.canAttack = !updated.isStunned; // Start of opponent turn
@@ -1243,6 +1285,48 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 return newState;
             }
 
+            if (source.cardId === '36') {
+                if (targetId) {
+                    updateTargetUnit(targetId, () => null);
+                    updateSourceUnit(unit => ({
+                        ...unit,
+                        counters: { ...unit.counters, thorEliminateUsed: 1 }
+                    }));
+                    addToast('Oponente eliminado por Thor!', 'info');
+                    return newState;
+                }
+                if (sourceIsPlayer) {
+                    newState.opponentBoard = newState.opponentBoard.map(unit => unit ? ({
+                        ...unit,
+                        isSilenced: true,
+                        counters: { ...unit.counters, statusTurns: Math.max(2, unit.counters?.statusTurns || 0) }
+                    }) : unit);
+                    newState.divineSlots.opponent = newState.divineSlots.opponent.map(unit => unit ? ({
+                        ...unit,
+                        isSilenced: true,
+                        counters: { ...unit.counters, statusTurns: Math.max(2, unit.counters?.statusTurns || 0) }
+                    }) : unit);
+                } else {
+                    newState.playerBoard = newState.playerBoard.map(unit => unit ? ({
+                        ...unit,
+                        isSilenced: true,
+                        counters: { ...unit.counters, statusTurns: Math.max(2, unit.counters?.statusTurns || 0) }
+                    }) : unit);
+                    newState.divineSlots.player = newState.divineSlots.player.map(unit => unit ? ({
+                        ...unit,
+                        isSilenced: true,
+                        counters: { ...unit.counters, statusTurns: Math.max(2, unit.counters?.statusTurns || 0) }
+                    }) : unit);
+                }
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    hasUsedAbility: true,
+                    counters: { ...unit.counters, thorTurns: 2, thorEliminateUsed: 0 }
+                }));
+                addToast('Thor silenciou todos os oponentes por 2 turnos!', 'warning');
+                return newState;
+            }
+
             if (source.cardId === '51' && targetId) {
                 updateTargetUnit(targetId, unit => ({
                     ...unit,
@@ -1271,10 +1355,27 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             }
 
             if (source.cardId === '93') {
+                if (!targetId) {
+                    const baseHela = cards.find(c => c.id === '93');
+                    updateSourceUnit(unit => ({
+                        ...unit,
+                        originalAttack: baseHela?.atk ?? unit.currentAttack,
+                        counters: { ...unit.counters, statusTurns: 3, helaTurns: 3, helaStealUsed: 0, helaAtkStacks: 0 },
+                        hasUsedAbility: true
+                    }));
+                    addToast('Hela ativa por 3 turnos!', 'info');
+                    return newState;
+                }
                 const enemyGraveyard = sourceIsPlayer ? newState.opponentGraveyard : newState.playerGraveyard;
                 const stolen = enemyGraveyard[0];
                 if (!stolen) {
                     addToast('Cemiterio inimigo vazio!', 'warning');
+                    return prev;
+                }
+                const sourceBoard = sourceIsPlayer ? newState.playerBoard : newState.opponentBoard;
+                const sacrifice = sourceBoard.find(unit => unit?.id === targetId && unit.id !== source.id);
+                if (!sacrifice) {
+                    addToast('Sacrificio invalido!', 'warning');
                     return prev;
                 }
                 const revived: Unit = {
@@ -1284,20 +1385,14 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     currentAttack: stolen.atk || 0,
                     canAttack: false
                 };
-                const targetBoard = sourceIsPlayer ? newState.playerBoard : newState.opponentBoard;
-                const emptyIndex = targetBoard.findIndex(slot => slot === null);
-                if (emptyIndex === -1) {
-                    addToast('Sem espaco para roubar carta do cemiterio!', 'warning');
-                    return prev;
-                }
                 if (sourceIsPlayer) {
-                    newState.playerBoard = newState.playerBoard.map((unit, index) => index === emptyIndex ? revived : unit);
+                    newState.playerBoard = newState.playerBoard.map(unit => unit?.id === targetId ? revived : unit);
                     newState.opponentGraveyard = newState.opponentGraveyard.slice(1);
                 } else {
-                    newState.opponentBoard = newState.opponentBoard.map((unit, index) => index === emptyIndex ? revived : unit);
+                    newState.opponentBoard = newState.opponentBoard.map(unit => unit?.id === targetId ? revived : unit);
                     newState.playerGraveyard = newState.playerGraveyard.slice(1);
                 }
-                updateSourceUnit(unit => ({ ...unit, hasUsedAbility: true }));
+                updateSourceUnit(unit => ({ ...unit, counters: { ...unit.counters, helaStealUsed: 1 } }));
                 addToast(`${source.name} roubou ${stolen.name} do cemiterio inimigo!`, 'info');
                 return newState;
             }
@@ -2118,7 +2213,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (!u) return null;
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null; // Destroyed
-                        if (result.defenderDies && u.cardId === '93') {
+                        if (result.defenderDies && u.cardId === '93' && (u.counters?.helaTurns || 0) > 0) {
                             const baseHela = cards.find(c => c.id === u.cardId);
                             const nextStacks = Math.min(10, (u.counters?.helaAtkStacks || 0) + 1);
                             const nextAttack = Math.floor((baseHela?.atk || u.currentAttack) * (1 + nextStacks * 0.1));
@@ -2159,7 +2254,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (!u) return null;
                     if (u.id === attackerInstanceId) {
                         if (result.attackerDies) return null;
-                        if (result.defenderDies && u.cardId === '93') {
+                        if (result.defenderDies && u.cardId === '93' && (u.counters?.helaTurns || 0) > 0) {
                             const baseHela = cards.find(c => c.id === u.cardId);
                             const nextStacks = Math.min(10, (u.counters?.helaAtkStacks || 0) + 1);
                             const nextAttack = Math.floor((baseHela?.atk || u.currentAttack) * (1 + nextStacks * 0.1));
@@ -2440,7 +2535,9 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const isAggressive = ['destroy', 'banish', 'damage', 'discard', 'returnToHand'].includes(effect.type)
             || (effect.target === 'enemy' || effect.target === 'opponent');
 
-        if (isAggressive) {
+        if (source.cardId === '90' && state.currentPlayer === 'player') {
+            executeEffect(effect, source, targetId);
+        } else if (isAggressive) {
             startChain(() => {
                 executeEffect(effect, source, targetId);
             });
@@ -2468,6 +2565,56 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
         if (unit.cardId === '34' && (unit.counters?.saitamaCooldown || 0) > 0) {
             addToast(`Saitama em cooldown: ${unit.counters?.saitamaCooldown}T`, 'warning');
+            return;
+        }
+
+        if (unit.cardId === '36' && (unit.counters?.thorTurns || 0) > 0) {
+            if ((unit.counters?.thorEliminateUsed || 0) > 0) {
+                addToast('Thor ja eliminou 1 oponente nesta ativacao!', 'warning');
+                return;
+            }
+            setState(prev => ({
+                ...prev,
+                targetSelectionMode: {
+                    active: true,
+                    effect: {
+                        trigger: 'onActivate',
+                        type: 'destroy',
+                        target: 'enemy',
+                        value: 1,
+                        description: 'Eliminar Oponente',
+                        requiresTarget: true
+                    },
+                    source: unit,
+                    validTargets: [...prev.opponentBoard, ...prev.divineSlots.opponent].filter(u => u !== null).map(u => u!.id)
+                }
+            }));
+            addToast('Selecione um oponente para eliminar', 'info');
+            return;
+        }
+
+        if (unit.cardId === '93' && (unit.counters?.helaTurns || 0) > 0) {
+            if ((unit.counters?.helaStealUsed || 0) > 0) {
+                addToast('Hela ja roubou 1 carta nesta ativacao!', 'warning');
+                return;
+            }
+            setState(prev => ({
+                ...prev,
+                targetSelectionMode: {
+                    active: true,
+                    effect: {
+                        trigger: 'onActivate',
+                        type: 'summon',
+                        target: 'self',
+                        value: 1,
+                        description: 'Roubar Carta',
+                        requiresTarget: true
+                    },
+                    source: unit,
+                    validTargets: [...prev.playerBoard, ...prev.divineSlots.player].filter(u => u !== null && u!.id !== unit.id).map(u => u!.id)
+                }
+            }));
+            addToast('Selecione um aliado para sacrificar', 'info');
             return;
         }
 

@@ -90,12 +90,12 @@ const SpecialAbilities: Record<string, AbilityFactory> = {
     }],
     '36': () => [{
         trigger: 'onActivate',
-        type: 'destroy',
-        target: 'enemy',
-        value: 1,
+        type: 'silence',
+        target: 'self',
+        value: 0,
         duration: 2,
-        description: 'Tempestade: eliminar 1 oponente',
-        requiresTarget: true
+        description: 'Tempestade: silenciar oponentes por 2 turnos',
+        requiresTarget: false
     }],
     '51': () => [{
         trigger: 'onActivate',
