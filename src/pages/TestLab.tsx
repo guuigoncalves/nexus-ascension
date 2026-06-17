@@ -49,6 +49,7 @@ interface TestUnit {
     stunTurns?: number; // Spider-Man Stun Duration
     hasAttacked?: boolean;
     isIntangible?: boolean;
+    hasUsedHB?: boolean;
     counters?: { [key: string]: number };
 }
 
@@ -118,7 +119,7 @@ export const TestLab: React.FC = () => {
     const [lanternDefensePrompt, setLanternDefensePrompt] = useState<{ activeLanternId: string; targetBoard: 'player' | 'enemy'; targetIndex: number } | null>(null);
     const legacySetupIds = useMemo(() => ['28', '29', '35', '86', '87', '151'], []);
     const greenStatusIds = useMemo(() => new Set([
-        '11', '13', '18', '25', '27', '28', '29', '31', '35', '36', '47', '51', '52', '53', '55', '56', '57', '59', '60', '86', '87', '91', '92', '94', '126', '127', '131', '132', '133', '136', '137', '138', '139', '144', '145', '146', '148', '150', '151', '152', '154', '157', '158', '159', '160', '161', '162', '163', '165', '172', '173', '175', '189', '190', '191', '192', '193', '194', '211', '212', '213', '214', 'TOK_SHENLONG'
+        '11', '13', '18', '25', '26', '27', '28', '29', '31', '33', '34', '35', '36', '47', '51', '52', '53', '55', '56', '57', '59', '60', '76', '86', '87', '88', '91', '92', '93', '94', '95', '126', '127', '130', '131', '132', '133', '136', '137', '138', '139', '144', '145', '146', '148', '150', '151', '152', '154', '157', '158', '159', '160', '161', '162', '163', '165', '172', '173', '175', '189', '190', '191', '192', '193', '194', '211', '212', '213', '214', 'TOK_SHENLONG'
     ]), []);
     const yellowStatusIds = useMemo(() => new Set(['63', '77', '164', '195']), []);
 
@@ -176,7 +177,7 @@ export const TestLab: React.FC = () => {
         '11', '13', '18', '159', '160', '161', '162', // Paladinos + Iniciais
         '189', '190', '191', '192', '193', '194', '195', // Série Marvel
         '211', '212', '213', '214', // Outros
-        '26', '33', '34', '76', '93', '95', '36', '51'
+        '26', '33', '34', '76', '93', '95', '36', '51', '88', '130'
     ], []);
 
     const universeOptions = useMemo(() => Array.from(new Set(cards.map(c => c.universe).filter(Boolean))).sort(), [cards]);
@@ -1050,7 +1051,7 @@ export const TestLab: React.FC = () => {
     const handleSetup = useCallback(() => {
         const newPBoard = Array(14).fill(null);
         const newPlayerHand = Array(8).fill(null);
-        const setupIds = ['90', '49', '88', '89', '130', '50'];
+        const setupIds = ['90', '50', '49', '61', '62', '128', '147', '149'];
         const setupCards = setupIds
             .map(id => initialCards.find(card => card.id === id))
             .filter((card): card is NonNullable<typeof card> => !!card);
@@ -1074,7 +1075,7 @@ export const TestLab: React.FC = () => {
     }, [enemyBoard, log, saveHistory]);
 
     const handleNormalSetup = useCallback(() => {
-        const playerSetupIds = ['90', '49', '88', '89', '130', '50'];
+        const playerSetupIds = ['90', '50', '49', '61', '62', '128', '147', '149'];
         const enemyRarityOrder = ['Supremo', 'Destruidor', 'Lendário', 'Titã', 'Elite', 'Veterano', 'Gladiador'];
         const newPlayerBoard = Array(14).fill(null);
         const newEnemyBoard = Array(14).fill(null);
@@ -1287,6 +1288,10 @@ export const TestLab: React.FC = () => {
                             nextCustomState.lanternManual = false;
                             nextCustomState.lanternAttackedThisTurn = false;
                         }
+                        if (unit.card.id === '61' || unit.card.id === '62') {
+                            updated.isReady = false;
+                            updated.charges = undefined;
+                        }
                         if (unit.card.id === '93') {
                             nextCustomState.helaActive = false;
                             nextCustomState.helaStealUsed = false;
@@ -1305,6 +1310,12 @@ export const TestLab: React.FC = () => {
                         }
                         if (unit.card.id === '36' && updated.customState?.thorAffectedIds) {
                             nextCustomState.thorExpired = true;
+                        }
+                        if (unit.card.id === '147') {
+                            nextCustomState.pietroActive = false;
+                            nextCustomState.attacksThisTurn = 0;
+                            updated.remainingAttacks = undefined;
+                            updated.maxAttacks = undefined;
                         }
                         if (unit.card.id === '51' && updated.customState?.magnetoAffectedIds) {
                             nextCustomState.magnetoExpired = true;
@@ -1350,6 +1361,14 @@ export const TestLab: React.FC = () => {
                                 hasAttacked: false
                             };
                         }
+                        if (updated.card.id === '147' && updated.effectTurns > 0) {
+                            updated.remainingAttacks = 2;
+                            updated.maxAttacks = 2;
+                            updated.customState = {
+                                ...(updated.customState || {}),
+                                attacksThisTurn: 0
+                            };
+                        }
                         // Atualizar texto do status
                         if (updated.statusText && updated.statusText.includes('T')) {
                             updated.statusText = updated.statusText.replace(/\d+T/, `${updated.effectTurns}T`);
@@ -1360,7 +1379,7 @@ export const TestLab: React.FC = () => {
                 // ↩️ Reset de ataques por turno (Goten, Rock Lee, etc.)
                 (updated as any).attacksThisTurn = 0;
                 updated = { ...updated, hasAttacked: false };
-                if (updated.maxAttacks !== undefined) {
+                if (updated.maxAttacks !== undefined && updated.card.id !== '147' && updated.card.id !== '157') {
                     updated.maxAttacks = undefined; // Limpa multi-ataque ao virar turno
                 }
 
@@ -2099,6 +2118,7 @@ export const TestLab: React.FC = () => {
         }
 
         let lanternDamageReduction = 0;
+        let lanternCounterDamage = 0;
         const activeLantern = defenderBoardArray.find(u =>
             u?.card.id === '90' &&
             u.effectTurns !== undefined &&
@@ -2126,20 +2146,60 @@ export const TestLab: React.FC = () => {
                 } : unit);
                 if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
                 if (lanternChoice === 'counter') {
-                    const nextAttBoard = attackerBoard.map(unit => {
-                        if (unit?.id !== attacker.id) return unit;
-                        const nextHealth = unit.currentHealth - 1200;
-                        return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
-                    });
-                    if (attackMode.attackerBoard === 'player') setPlayerBoard(nextAttBoard); else setEnemyBoard(nextAttBoard);
-                    setAttackMode(null);
-                    setSelectedSlot(null);
-                    log('[LANTERNA VERDE] Contra-ataque manual causou 1200 e ignorou o dano.');
-                    return;
-                }
+                    lanternCounterDamage = 1200;
+                    log('[LANTERNA VERDE] Contra-ataque manual causou 1200. O alvo recebe o ataque normalmente.');
+                } else {
                 lanternDamageReduction = 1200;
                 log('[LANTERNA VERDE] Interceptacao manual reduziu 1200 do dano.');
+                }
             }
+        }
+
+        const activeAndroid17 = defenderBoardArray.find(u =>
+            u?.card.id === '61' &&
+            u.isReady &&
+            (u.charges || 0) > 0
+        );
+        if (activeAndroid17) {
+            const absorbAttack = window.confirm('[ANDROID 17] Absorver este ataque?');
+            if (absorbAttack) {
+                const nextDefBoard = defenderBoardArray.map(unit => {
+                    if (unit?.id !== activeAndroid17.id) return unit;
+                    const nextCharges = Math.max(0, (unit.charges || 1) - 1);
+                    const nextHealth = unit.currentHealth - 500;
+                    if (nextHealth <= 0) return null;
+                    return {
+                        ...unit,
+                        currentAttack: unit.currentAttack + attacker.currentAttack,
+                        currentHealth: nextHealth,
+                        isReady: nextCharges > 0,
+                        charges: nextCharges,
+                        statusText: nextCharges > 0 ? `ABSORB ${nextCharges}` : undefined,
+                        card: { ...unit.card, atk: unit.currentAttack + attacker.currentAttack, def: nextHealth }
+                    };
+                });
+                if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
+                log('[ANDROID 17] Ataque absorvido.');
+                setAttackMode(null);
+                setSelectedSlot(null);
+                return;
+            }
+        }
+
+        if (defender.card.id === '62' && defender.isReady && (defender.charges || 0) > 0) {
+            const nextDefBoard = defenderBoardArray.map(unit => unit?.id === defender.id ? {
+                ...unit,
+                currentAttack: unit.currentAttack + attacker.currentAttack,
+                isReady: false,
+                charges: 0,
+                statusText: undefined,
+                card: { ...unit.card, atk: unit.currentAttack + attacker.currentAttack }
+            } : unit);
+            if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
+            log('[ANDROID 18] Ataque recebido absorvido.');
+            setAttackMode(null);
+            setSelectedSlot(null);
+            return;
         }
 
         if (defender.customState?.hitStance && defender.customState?.hitCharges && defender.customState.hitCharges > 0) {
@@ -2185,7 +2245,8 @@ export const TestLab: React.FC = () => {
             if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
         }
 
-        let attackerDamage = Math.max(0, attacker.currentAttack - lanternDamageReduction); // ATK do atacante
+        const pietroSecondAttack = attacker.card.id === '147' && attacker.customState?.pietroActive && (attacker.customState?.attacksThisTurn || 0) >= 1;
+        let attackerDamage = Math.max(0, (pietroSecondAttack ? 1800 : attacker.currentAttack) - lanternDamageReduction); // ATK do atacante
         if (defender.customState?.damageReduction) {
             attackerDamage = Math.floor(attackerDamage * defender.customState.damageReduction);
         }
@@ -2308,6 +2369,15 @@ export const TestLab: React.FC = () => {
             const nextBoard = boardArr.map(unit => {
                 if (unit?.id !== attacker.id) return unit;
                 const nextHealth = unit.currentHealth - attacker.customState.attackCostDef;
+                return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
+            });
+            if (attackMode.attackerBoard === 'player') newPBoard = nextBoard; else newEBoard = nextBoard;
+        }
+        if (lanternCounterDamage > 0) {
+            const boardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
+            const nextBoard = boardArr.map(unit => {
+                if (unit?.id !== attacker.id) return unit;
+                const nextHealth = unit.currentHealth - lanternCounterDamage;
                 return nextHealth <= 0 ? null : { ...unit, currentHealth: nextHealth, card: { ...unit.card, def: nextHealth } };
             });
             if (attackMode.attackerBoard === 'player') newPBoard = nextBoard; else newEBoard = nextBoard;
@@ -2539,6 +2609,21 @@ export const TestLab: React.FC = () => {
                 (attUnit as any).attacksThisTurn = attacksThisTurn + 1;
                 attackerBoardArr[attIdx] = attUnit;
                 if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
+            }
+        }
+
+        if (attacker.card.id === '147' && attacker.customState?.pietroActive) {
+            const attackerBoardArr = attackMode.attackerBoard === 'player' ? newPBoard : newEBoard;
+            const attIdx = attackerBoardArr.findIndex(u => u?.id === attacker.id);
+            if (attIdx !== -1 && attackerBoardArr[attIdx]) {
+                const attUnit = { ...attackerBoardArr[attIdx]! };
+                attUnit.customState = {
+                    ...(attUnit.customState || {}),
+                    attacksThisTurn: (attUnit.customState?.attacksThisTurn || 0) + 1
+                };
+                attackerBoardArr[attIdx] = attUnit;
+                if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
+                if (pietroSecondAttack) log('[PIETRO] Segundo ataque usou AT 1800.');
             }
         }
 
@@ -3238,9 +3323,9 @@ export const TestLab: React.FC = () => {
                 let firstTargetAtk = 0;
                 const selectMarvelTarget = (targetId: string) => {
                     const target = opponentBoardState.find(unit => unit?.id === targetId);
-                    const targetLevel = target?.card.level ?? target?.card.stars;
-                    if (!target || targetLevel === undefined || targetLevel > 7) {
-                        log('Alvo invalido! Somente nivel/estrelas 7 ou inferior.');
+                    const targetTier = String(target?.card.tier || target?.card.rarity || '').toLowerCase();
+                    if (!target || targetTier.includes('destruidor') || targetTier.includes('supremo')) {
+                        log('Alvo invalido! Destruidores e Supremos nao podem ser escolhidos.');
                         setTimeout(() => setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: selectMarvelTarget }), 0);
                         return;
                     }
@@ -3250,8 +3335,8 @@ export const TestLab: React.FC = () => {
                     }
                     setOpponentBoardState(prev => prev.map(unit => unit?.id === targetId ? null : unit));
                     if (selectedTargets.length >= 3 || opponentBoardState.filter(u => {
-                        const level = u?.card.level ?? u?.card.stars;
-                        return u && level !== undefined && level <= 7 && !selectedTargets.includes(u.id);
+                        const tier = String(u?.card.tier || u?.card.rarity || '').toLowerCase();
+                        return u && !tier.includes('destruidor') && !tier.includes('supremo') && !selectedTargets.includes(u.id);
                     }).length === 0) {
                         updateSourceUnit(unit => ({ ...unit, currentAttack: unit.currentAttack + firstTargetAtk, card: { ...unit.card, atk: unit.currentAttack + firstTargetAtk } }));
                         setInteractionMode({ type: 'IDLE' });
@@ -3268,6 +3353,11 @@ export const TestLab: React.FC = () => {
                 setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => {
                     const target = opponentBoardState.find(unit => unit?.id === targetId);
                     if (!target) { setInteractionMode({ type: 'IDLE' }); return; }
+                    if (target.hasUsedHB || target.customState?.hbDisabled) {
+                        log('[DR DESTINO] Alvo ja usou ou perdeu a HB.');
+                        setInteractionMode({ type: 'IDLE' });
+                        return;
+                    }
                     const subType = String(target.card.subType || '').toLowerCase();
                     const isMagicTarget = !!target.card.isMagic || !!target.card.isMagical || subType.includes('magico') || target.card.id === '169';
                     updateSourceUnit(unit => ({ ...unit, customState: { ...(unit.customState || {}), stolenAbilityCardId: target.card.id, stolenAbilityDescription: target.card.description } }));
@@ -3275,7 +3365,7 @@ export const TestLab: React.FC = () => {
                         if (unit?.id !== targetId) return unit;
                         const nextAttack = isMagicTarget ? Math.floor(unit.currentAttack * 0.5) : unit.currentAttack;
                         const nextHealth = isMagicTarget ? Math.floor(unit.currentHealth * 0.5) : unit.currentHealth;
-                        return { ...unit, currentAttack: nextAttack, currentHealth: nextHealth, isSilenced: true, customState: { ...(unit.customState || {}), hbDisabled: true }, statusText: isMagicTarget ? 'HB OFF / 50%' : 'HB OFF', card: { ...unit.card, atk: nextAttack, def: nextHealth } };
+                        return { ...unit, currentAttack: nextAttack, currentHealth: nextHealth, hasUsedHB: true, isSilenced: true, customState: { ...(unit.customState || {}), hbDisabled: true }, statusText: isMagicTarget ? 'HB OFF / 50%' : 'HB OFF', card: { ...unit.card, atk: nextAttack, def: nextHealth } };
                     }));
                     setInteractionMode({ type: 'IDLE' });
                 } });
@@ -3321,6 +3411,8 @@ export const TestLab: React.FC = () => {
             if (id === '57') { updateSourceUnit(unit => ({ ...unit, isImmune: true, effectTurns: 3, statusText: 'TOPPO 3T' })); setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { removeOpponentById(targetId); setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
             if (id === '59') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: unit.currentAttack + 1000, effectTurns: 3, statusText: 'ROSE 3T', card: { ...unit.card, atk: unit.currentAttack + 1000 } })); setInteractionMode({ type: 'SELECTING_ABILITY_TARGET', sourceId: source.id, abilityCallback: (targetId) => { damageOpponentById(targetId, 1500); setInteractionMode({ type: 'IDLE' }); } }); close(); return; }
             if (id === '60') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), statusText: 'ORANGE', customState: { ...(unit.customState || {}), damageReduction: 0.5, attackCostDef: 500 }, card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
+            if (id === '61') { updateSourceUnit(unit => ({ ...unit, isReady: true, charges: 2, statusText: 'ABSORB 2' })); close(); return; }
+            if (id === '62') { updateSourceUnit(unit => ({ ...unit, isReady: true, charges: 1, statusText: 'ABSORB 1' })); close(); return; }
             if (id === '63') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), effectTurns: 2, statusText: 'NEXT BLAST', customState: { ...(unit.customState || {}), delayedDamage: 1500 }, card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
             if (id === '76') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: Math.floor(unit.currentAttack * 1.5), isImmune: true, effectTurns: 3, statusText: 'NARUTO 3T', card: { ...unit.card, atk: Math.floor(unit.currentAttack * 1.5) } })); close(); return; }
             if (id === '77') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, originalHealth: unit.originalHealth ?? unit.currentHealth, currentAttack: 2500, currentHealth: 0, effectTurns: 3, statusText: 'SUSANOO 3T', customState: { ...(unit.customState || {}), reflectPlus: 900 }, card: { ...unit.card, atk: 2500, def: 0 } })); close(); return; }
@@ -3330,7 +3422,7 @@ export const TestLab: React.FC = () => {
                 setOpponentBoardState(prev => prev.map(unit => {
                     if (!unit) return unit;
                     const subType = String(unit.card.subType || '').toLowerCase();
-                    const isCybernetic = !!unit.card.isCyborg || !!unit.card.isCybernetic || subType.includes('cibernetico') || unit.card.id === '61' || unit.card.id === '62';
+                    const isCybernetic = !!unit.card.isCyborg || !!unit.card.isCybernetic || subType.includes('cibernetico') || unit.card.id === '61' || unit.card.id === '62' || unit.card.id === '89' || unit.card.id === '166';
                     return isCybernetic ? { ...unit, isStunned: true, isSilenced: true, effectTurns: 3, statusText: 'CYBER OFF' } : unit;
                 }));
                 close(); return;
@@ -3449,6 +3541,24 @@ export const TestLab: React.FC = () => {
                 close(); return;
             }
             if (id === '128') { updateSourceUnit(unit => ({ ...unit, originalAttack: unit.originalAttack ?? unit.currentAttack, currentAttack: unit.currentAttack * 2, effectTurns: 2, statusText: 'WOLVERINE 2T', customState: { ...(unit.customState || {}), wolverineSurvive: true }, card: { ...unit.card, atk: unit.currentAttack * 2 } })); close(); return; }
+            if (id === '147') { updateSourceUnit(unit => ({ ...unit, effectTurns: 3, remainingAttacks: 2, maxAttacks: 2, statusText: 'PIETRO 3T', customState: { ...(unit.customState || {}), pietroActive: true, attacksThisTurn: 0 } })); close(); return; }
+            if (id === '149') {
+                const tiger = window.confirm('[MUTANO] OK = Tigre (AT x2). Cancelar = Elefante (DF x2).');
+                updateSourceUnit(unit => tiger ? {
+                    ...unit,
+                    originalAttack: unit.originalAttack ?? unit.currentAttack,
+                    currentAttack: unit.currentAttack * 2,
+                    statusText: 'TIGRE',
+                    card: { ...unit.card, atk: unit.currentAttack * 2 }
+                } : {
+                    ...unit,
+                    originalHealth: unit.originalHealth ?? unit.currentHealth,
+                    currentHealth: unit.currentHealth * 2,
+                    statusText: 'ELEFANTE',
+                    card: { ...unit.card, def: unit.currentHealth * 2 }
+                });
+                close(); return;
+            }
         }
 
         if (source.card.id === '139') {
@@ -5226,6 +5336,7 @@ export const TestLab: React.FC = () => {
                                         className="flex-1 text-left text-[10px] font-bold text-white/90 truncate"
                                     >
                                         {card.name}
+                                        {validatedCards.includes(card.id) && <span className="w-2 h-2 rounded-full bg-green-500" />}
                                     </button>
                                     <div className="flex items-center justify-end min-w-[70px]">
                                         <div className="flex gap-2 text-[9px] font-mono group-hover:hidden whitespace-nowrap opacity-60">
