@@ -1,0 +1,62 @@
+PROJETO: Nexus Ascension
+REPOSITORIO: /home/ubuntu/projects/nexus-ascension
+AVISO: O Git esta em read-only no sandbox. Foque estritamente em implementar a logica nos arquivos relevantes.
+
+REGRAS ABSOLUTAS DO PROJETO NEXUS ASCENSION:
+R1  - NUNCA usar nome da carta. Sempre ID numerico como string.
+R2  - NUNCA hardcodar AT ou DF. Sempre initialCards.find(c => c.id === 'ID').
+R3  - NUNCA inventar HB. Texto oficial esta neste prompt.
+R4  - NUNCA tocar em carta blindada.
+R5  - NUNCA mais de 5-8 cartas por lote.
+R6  - SEMPRE spread operator em mutacoes React.
+R7  - str_replace cirurgico. NUNCA reescrever arquivo inteiro.
+R8  - ASCII puro. PROIBIDO acentos e emojis em arquivos .ts/.tsx/.js.
+R9  - Sempre interactionMode. Nunca multiplas flags de estado.
+R10 - NUNCA reescrever strings de HB durante correcoes de UI.
+R11 - isImmune no defensor NAO impede morte do atacante quando ATK < DEF.
+R12 - Cooldowns SEMPRE decrementam em nextTurn.
+R13 - Todo TARGET_SELECT DEVE chamar setInteractionMode({type:'IDLE'}) ao final.
+R14 - Carta 'nao criada ainda' = DLC. PARAR e reportar.
+R15 - IDs sao sagrados. NUNCA alterar IDs em cards.ts.
+R16 - Build deve passar com npm run build antes de avancar.
+R17 - Somente o que foi pedido. Nada a mais.
+R18 - Setup do jogador: apenas cartas da sessao atual via initialCards.find().
+
+---
+
+ARQUIVOS ALVO PRINCIPAIS:
+- src/context/BattleContext.tsx
+- src/utils/AbilityEngine.ts
+
+FERRAMENTA PRIMARIA: Codex /goal GPT-5.4
+FALLBACK 1: agy Gemini 3.5 Pro High
+FALLBACK 2: agy Sonnet 4.6
+
+---
+
+TAREFA 1 — DR. DESTINO (ID: '50') — LÓGICA DE ROUBO DE HABILIDADE
+Mecanica Oficial:
+1. Ao ativar a habilidade do Dr. Destino (ID '50'), o jogador seleciona 1 carta oponente na arena (TARGET_SELECT).
+2. Se a carta alvo for magica (propriedade 'isMagic' ou 'isMagical' como true, ou 'subType' contendo 'magico', ou ID '169'), o Dr. Destino imediatamente reduz o Ataque (AT) e Defesa (DF) atuais dessa carta oponente pela metade (50%).
+3. Dr. Destino silencia a habilidade dessa carta alvo (marca como ja usada/desabilitada para o oponente).
+4. O Dr. Destino 'rouba' a habilidade: armazene o ID da carta roubada em um estado do Dr. Destino (ex: 'destinoStolenAbilityId').
+5. Durante o restante do jogo, se Dr. Destino tiver um 'destinoStolenAbilityId', o botao de habilidade dele na UI se transforma no botao de acao da habilidade roubada. Ao clicar, o Dr. Destino pode executar a habilidade que pertencia ao oponente (uma unica vez).
+6. Garanta que todas as mutacoes de estado de cartas usem spread operator.
+
+TAREFA 2 — CAPITÃ MARVEL (ID: '49') — NERF E SELEÇÃO DE ALVO
+Mecanica Oficial:
+1. Ao ativar a habilidade da Capita Marvel (ID '49'), o jogador escolhe e elimina ate 2 cartas oponentes na arena.
+2. Filtro de Alvo: Apenas cartas que possuam nivel ou estrelas inferior ou igual a 7 (level <= 7 ou stars <= 7).
+3. Protecao: Se o alvo selecionado tiver o subType 'destruidor' ou 'supremo', o clique deve ser bloqueado/ignorado.
+4. Capita Marvel NAO absorve mais o Ataque de ninguem (remova qualquer referencia antiga de absorcao ou ganho de AT/DF na habilidade dela). Ela apenas elimina os 2 oponentes selecionados.
+
+TAREFA 3 — WOLVERINE (ID: '128') — REAÇÃO DE DEFESA PASSIVA
+Mecanica Oficial:
+1. Ao ativar a habilidade do Wolverine (ID '128'), ele ativa seu Instinto Predatorio por 2 turnos (use um contador de turnos de duracao persistente decrementado no nextTurn). Durante esses 2 turnos, seu Ataque e dobrado.
+2. Se Wolverine for atacado durante este periodo de 2 turnos, e Wolverine resistir vivo ao ataque (ou seja, o Ataque do oponente e menor do que a Defesa do Wolverine, aplicando o recuo canonico de combate):
+3. Wolverine recebe imediatamente um buff de +50% de Defesa (DF) de forma automatica e permanente enquanto estiver vivo. Calcule o ganho com base no valor de Defesa que ele possuia no momento do combate ou em sua Defesa base do initialCards.
+
+---
+
+VALIDAÇÃO:
+Rode 'npm run build' ao final de cada implementacao para certificar-se de que a tipagem do TypeScript e as importacoes estao corretas.

@@ -5,6 +5,7 @@ import { useCards } from './CardContext';
 import { getSacrificeCost } from '../utils/cardUtils';
 import { parseAbilityToEffects } from '../utils/AbilityEngine';
 import { resolveCombat } from '../utils/combatEngine';
+import { initialCards } from '../data/cards';
 
 interface Unit extends Card {
     cardId: string;
@@ -22,6 +23,8 @@ interface Unit extends Card {
     originalAttack?: number;
     originalHealth?: number;
     charges?: number;
+    destinoStolenAbilityId?: string;
+    destinoStolenAbilityUsed?: boolean;
     karmaTargetId?: string;
     karmaStage?: 1 | 2;
     karmaStoredAttack?: number;
@@ -428,6 +431,58 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const hasManualTargetSelection = (unit: Unit): boolean =>
         getUnitEffects(unit).some(effect => effect.trigger === 'onActivate' && effect.requiresTarget === true);
 
+    const normalizeRuleText = (value: unknown): string =>
+        String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    const isDestinoMagicTarget = (unit: Unit): boolean => {
+        const canonical = initialCards.find(c => c.id === unit.cardId);
+        const unitMeta = unit as Unit & { isMagic?: boolean; isMagical?: boolean; subType?: string };
+        const canonicalMeta = canonical as (Card & { isMagic?: boolean; isMagical?: boolean; subType?: string }) | undefined;
+        const subType = normalizeRuleText(unitMeta.subType ?? canonicalMeta?.subType);
+
+        return unit.cardId === '169'
+            || unitMeta.isMagic === true
+            || unitMeta.isMagical === true
+            || canonicalMeta?.isMagic === true
+            || canonicalMeta?.isMagical === true
+            || subType.includes('magico');
+    };
+
+    const isCaptainMarvelTarget = (unit: Unit): boolean => {
+        const canonical = initialCards.find(c => c.id === unit.cardId);
+        const unitMeta = unit as Unit & { level?: number; stars?: number; subType?: string };
+        const canonicalMeta = canonical as (Card & { level?: number; stars?: number; subType?: string }) | undefined;
+        const subType = normalizeRuleText(unitMeta.subType ?? canonicalMeta?.subType);
+        const isProtected = unit.rarity === 'Destruidor'
+            || unit.rarity === 'Supremo'
+            || subType.includes('destruidor')
+            || subType.includes('supremo');
+        const level = unitMeta.level ?? canonicalMeta?.level;
+        const stars = unitMeta.stars ?? canonicalMeta?.stars;
+        const isLowEnough = (typeof level === 'number' && level <= 7) || (typeof stars === 'number' && stars <= 7);
+
+        return isLowEnough && !isProtected;
+    };
+
+    const tickWolverine = (unit: Unit): Unit => {
+        if ((unit.counters?.wolverineTurns || 0) <= 0) return unit;
+
+        const nextTurns = Math.max(0, (unit.counters?.wolverineTurns || 0) - 1);
+        const nextUnit = {
+            ...unit,
+            counters: { ...unit.counters, wolverineTurns: nextTurns }
+        };
+
+        if (nextTurns > 0) return nextUnit;
+
+        const base = initialCards.find(c => c.id === '128');
+        return {
+            ...nextUnit,
+            currentAttack: unit.originalAttack ?? base?.atk ?? unit.currentAttack,
+            originalAttack: undefined
+        };
+    };
+
     const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
 
     // Lock to prevent AI from executing multiple times or looping
@@ -726,13 +781,19 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                             { attack: target.currentAttack, defense: target.currentHealth },
                             newState.playerHealth
                         );
+                        const wolverineDefenseBonus = target.cardId === '128'
+                            && (target.counters?.wolverineTurns || 0) > 0
+                            && combat.attackerDies
+                            && !combat.defenderDies
+                            ? Math.floor(target.currentHealth * 0.5)
+                            : 0;
 
                         // Damage Player Unit (Permanent DEF loss and Reveal)
                         newState.playerBoard = newState.playerBoard.map((u, i) => {
                             if (!u) return null;
                             if (i === target.originalIndex) {
                                 if (combat.defenderDies) return null;
-                                return { ...u, currentHealth: combat.newDefenderDef, isFaceDown: false };
+                                return { ...u, currentHealth: combat.newDefenderDef + wolverineDefenseBonus, isFaceDown: false };
                             }
                             return u;
                         });
@@ -868,6 +929,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 if ((updated.counters?.thorTurns || 0) > 0) {
                     updated.counters = { ...updated.counters, thorTurns: Math.max(0, (updated.counters?.thorTurns || 0) - 1) };
                 }
+                updated = tickWolverine(updated);
                 return updated;
             };
 
@@ -921,6 +983,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if ((updated.counters?.thorTurns || 0) > 0) {
                         updated.counters = { ...updated.counters, thorTurns: Math.max(0, (updated.counters?.thorTurns || 0) - 1) };
                     }
+                    updated = tickWolverine(updated);
                     if (nextPlayer === 'player') {
                         updated.canAttack = !updated.isStunned; // Start of player turn
                         updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
@@ -985,6 +1048,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if ((updated.counters?.thorTurns || 0) > 0) {
                         updated.counters = { ...updated.counters, thorTurns: Math.max(0, (updated.counters?.thorTurns || 0) - 1) };
                     }
+                    updated = tickWolverine(updated);
                     if (nextPlayer === 'opponent') {
                         updated.canAttack = !updated.isStunned; // Start of opponent turn
                         updated.remainingAttacks = updated.maxAttacksPerTurn ?? 1;
@@ -1178,6 +1242,56 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     const executeEffect = (effect: CardEffect, source: Unit, targetId?: string) => {
+        if (!targetId && source.cardId === '49') {
+            const sourceIsPlayer = state.playerBoard.some(u => u?.id === source.id) || state.divineSlots.player.some(u => u?.id === source.id);
+            const enemyUnits = sourceIsPlayer
+                ? [...state.opponentBoard, ...state.divineSlots.opponent]
+                : [...state.playerBoard, ...state.divineSlots.player];
+            const validTargets = enemyUnits.filter((u): u is Unit => !!u && isCaptainMarvelTarget(u)).map(u => u.id);
+
+            if (validTargets.length === 0) {
+                addToast('Sem alvos validos para Explosao de Fotons!', 'warning');
+                return;
+            }
+
+            setState(prev => ({
+                ...prev,
+                targetSelectionMode: {
+                    active: true,
+                    effect,
+                    source,
+                    validTargets
+                }
+            }));
+            addToast('Selecione ate 2 alvos validos', 'info');
+            return;
+        }
+
+        if (!targetId && source.cardId === '50') {
+            const sourceIsPlayer = state.playerBoard.some(u => u?.id === source.id) || state.divineSlots.player.some(u => u?.id === source.id);
+            const enemyUnits = sourceIsPlayer
+                ? [...state.opponentBoard, ...state.divineSlots.opponent]
+                : [...state.playerBoard, ...state.divineSlots.player];
+            const validTargets = enemyUnits.filter((u): u is Unit => !!u).map(u => u.id);
+
+            if (validTargets.length === 0) {
+                addToast('Sem alvos validos para roubar habilidade!', 'warning');
+                return;
+            }
+
+            setState(prev => ({
+                ...prev,
+                targetSelectionMode: {
+                    active: true,
+                    effect,
+                    source,
+                    validTargets
+                }
+            }));
+            addToast('Selecione 1 oponente para roubar a habilidade', 'info');
+            return;
+        }
+
         // Target Logic: If target needed but not provided, enter selection mode
         if (!targetId && (effect.requiresTarget === true || effect.target === 'enemy' || effect.target === 'any' || (effect.type === 'destroy' || effect.type === 'banish' || effect.type === 'returnToHand'))) {
             // Check if there ARE valid targets
@@ -1237,6 +1351,93 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             const findTargetUnit = (targetUnitId: string) =>
                 [...newState.playerBoard, ...newState.opponentBoard, ...newState.divineSlots.player, ...newState.divineSlots.opponent]
                     .find((u): u is Unit => !!u && u.id === targetUnitId);
+            const actualSourceUnit = findTargetUnit(source.id);
+            const sourceUsingDestinoStolen = actualSourceUnit?.cardId === '50' && source.cardId !== actualSourceUnit.cardId;
+
+            if (source.cardId === '49' && targetId) {
+                const target = findTargetUnit(targetId);
+                if (!target || !isCaptainMarvelTarget(target)) {
+                    addToast('Alvo bloqueado para Explosao de Fotons!', 'warning');
+                    return prev;
+                }
+
+                const targetIsOpponent = newState.opponentBoard.some(u => u?.id === targetId) || newState.divineSlots.opponent.some(u => u?.id === targetId);
+                updateTargetUnit(targetId, () => null);
+                if (targetIsOpponent) newState.opponentGraveyard = [...newState.opponentGraveyard, target];
+                else newState.playerGraveyard = [...newState.playerGraveyard, target];
+
+                const remainingTargets = Math.max(0, (effect.value || 1) - 1);
+                const enemyUnits = sourceIsPlayer
+                    ? [...newState.opponentBoard, ...newState.divineSlots.opponent]
+                    : [...newState.playerBoard, ...newState.divineSlots.player];
+                const validTargets = enemyUnits.filter((u): u is Unit => !!u && isCaptainMarvelTarget(u)).map(u => u.id);
+
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    hasUsedAbility: true,
+                    isReady: false,
+                    destinoStolenAbilityUsed: sourceUsingDestinoStolen ? true : unit.destinoStolenAbilityUsed
+                }));
+
+                newState.targetSelectionMode = remainingTargets > 0 && validTargets.length > 0
+                    ? {
+                        active: true,
+                        effect: { ...effect, value: remainingTargets },
+                        source,
+                        validTargets
+                    }
+                    : null;
+                addToast('Alvo eliminado por Explosao de Fotons!', 'info');
+                return newState;
+            }
+
+            if (source.cardId === '50' && targetId) {
+                const target = findTargetUnit(targetId);
+                if (!target) {
+                    addToast('Alvo nao encontrado para roubo de habilidade!', 'warning');
+                    return prev;
+                }
+
+                updateTargetUnit(targetId, unit => {
+                    const magicPenalty = isDestinoMagicTarget(unit)
+                        ? {
+                            currentAttack: Math.floor(unit.currentAttack / 2),
+                            currentHealth: Math.floor(unit.currentHealth / 2)
+                        }
+                        : {};
+                    return {
+                        ...unit,
+                        ...magicPenalty,
+                        isSilenced: true,
+                        hasUsedAbility: true,
+                        isReady: false
+                    };
+                });
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    destinoStolenAbilityId: target.cardId,
+                    destinoStolenAbilityUsed: false,
+                    hasUsedAbility: true,
+                    isReady: false
+                }));
+                addToast('Habilidade roubada e alvo silenciado!', 'info');
+                return newState;
+            }
+
+            if (source.cardId === '128') {
+                const base = initialCards.find(c => c.id === '128');
+                updateSourceUnit(unit => ({
+                    ...unit,
+                    originalAttack: unit.originalAttack ?? base?.atk ?? unit.currentAttack,
+                    currentAttack: unit.currentAttack * 2,
+                    counters: { ...unit.counters, wolverineTurns: 2 },
+                    hasUsedAbility: true,
+                    isReady: false,
+                    destinoStolenAbilityUsed: sourceUsingDestinoStolen ? true : unit.destinoStolenAbilityUsed
+                }));
+                addToast('Instinto Predatorio ativado por 2 turnos!', 'info');
+                return newState;
+            }
 
             if (source.cardId === '26' && targetId) {
                 updateTargetUnit(targetId, () => null);
@@ -2199,6 +2400,12 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     { attack: effectiveTarget.currentAttack, defense: DF },
                     prev.opponentHealth
                 );
+                const wolverineDefenseBonus = target.cardId === '128'
+                    && (target.counters?.wolverineTurns || 0) > 0
+                    && result.attackerDies
+                    && !result.defenderDies
+                    ? Math.floor(target.currentHealth * 0.5)
+                    : 0;
 
                 if (result.attackerDies && result.defenderDies) {
                     addToast('Empate! As duas unidades foram destruídas.', 'info');
@@ -2242,7 +2449,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         // Persistent Damage + Reveal
                         return {
                             ...u,
-                            currentHealth: result.newDefenderDef !== DF ? result.newDefenderDef : u.currentHealth,
+                            currentHealth: (result.newDefenderDef !== DF ? result.newDefenderDef : u.currentHealth) + wolverineDefenseBonus,
                             isFaceDown: false
                         };
                     }
@@ -2282,7 +2489,7 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         if (result.defenderDies) return null;
                         return {
                             ...u,
-                            currentHealth: result.newDefenderDef !== DF ? result.newDefenderDef : u.currentHealth,
+                            currentHealth: (result.newDefenderDef !== DF ? result.newDefenderDef : u.currentHealth) + wolverineDefenseBonus,
                             isFaceDown: false
                         };
                     }
@@ -2621,6 +2828,48 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         // Check Single Use Per Turn Rule
         if (state.unitsUsedAbilityThisTurn.includes(cardId)) {
             addToast('Esta unidade já usou sua habilidade neste turno!', 'warning');
+            return;
+        }
+
+        if (unit.cardId === '50' && unit.destinoStolenAbilityId && !unit.destinoStolenAbilityUsed) {
+            const stolenCard = initialCards.find(c => c.id === unit.destinoStolenAbilityId);
+            if (!stolenCard) {
+                addToast('Habilidade roubada nao encontrada!', 'warning');
+                return;
+            }
+
+            const stolenEffects = [
+                ...(stolenCard.effects || []),
+                ...parseAbilityToEffects(stolenCard.description || '', stolenCard.id)
+            ];
+            const stolenEffect = stolenEffects.find(e => e.trigger === 'onActivate');
+            if (!stolenEffect) {
+                addToast('A carta roubada nao possui habilidade ativa identificada!', 'warning');
+                return;
+            }
+
+            const stolenSource = { ...unit, cardId: stolenCard.id };
+
+            setState(prev => ({
+                ...prev,
+                unitsUsedAbilityThisTurn: [...prev.unitsUsedAbilityThisTurn, cardId],
+                playerBoard: prev.playerBoard.map(u => u?.id === cardId ? { ...u, destinoStolenAbilityUsed: true } : u),
+                divineSlots: {
+                    ...prev.divineSlots,
+                    player: prev.divineSlots.player.map(u => u?.id === cardId ? { ...u, destinoStolenAbilityUsed: true } : u)
+                }
+            }));
+
+            const needsStolenTarget = stolenEffect.requiresTarget === true
+                || (stolenEffect.target === 'enemy' || stolenEffect.target === 'opponent' || stolenEffect.target === 'any')
+                || ['destroy', 'banish', 'returnToHand'].includes(stolenEffect.type);
+
+            if (needsStolenTarget) {
+                executeEffect(stolenEffect, stolenSource);
+                return;
+            }
+
+            executeEffect(stolenEffect, stolenSource);
             return;
         }
 

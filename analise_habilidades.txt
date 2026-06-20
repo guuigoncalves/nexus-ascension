@@ -1,0 +1,192 @@
+ID: 4
+Nome: Dr. Manhattan
+Texto HB em cards.ts: Manipula a realidade: troca 1 carta da arena ou cemitério por 1 carta da arena ou cemitério geral.
+Logica Real: Retorna 1 carta selecionada para a mao via efeito returnToHand com alvo any.
+Divergencia: Sim - O texto fala em troca entre arena/cemiterio geral, mas a engine apenas reposiciona uma carta para a mao.
+---
+ID: 5
+Nome: Whis
+Texto HB em cards.ts: Treina um aliado, sendo ambos removidos da arena por 2 Turnos, retornando com +50% em seus Ataque e Defesa e sua Habilidade podendo ser utilizadas. Após isso, Whis pode treinar 'outro' aliado.
+Logica Real: Sem logica ativa; o registry retorna [] via unsupportedAbility.
+Divergencia: Sim - A habilidade descrita nao esta implementada na AbilityEngine.
+---
+ID: 10
+Nome: Galactus
+Texto HB em cards.ts: Drena permanentemente 20% do Ataque de todas as cartas adversárias na arena.
+Logica Real: Sem logica ativa; o registry retorna [] via unsupportedAbility.
+Divergencia: Sim - A habilidade descrita nao esta implementada na AbilityEngine.
+---
+ID: 11
+Nome: Darkseid
+Texto HB em cards.ts: Invoca 1 Lacaio com 500 Pontos e controla 1 oponente permanentemente. Efeitos cessam se Darkseid for eliminado.
+Logica Real: Ao ativar, invoca 1 lacaio e aplica mindControl em 1 inimigo por 2 turnos.
+Divergencia: Sim - O controle no codigo dura 2 turnos, nao e permanente, e nao ha regra de cessar efeitos ao Darkseid ser eliminado.
+---
+ID: 13
+Nome: Odin
+Texto HB em cards.ts: Pode revelar a mão do oponente e selar uma das cartas da mão permanentemente.
+Logica Real: Ao ativar, revela a mao do oponente.
+Divergencia: Sim - A engine nao implementa selar carta da mao permanentemente.
+---
+ID: 14
+Nome: Zeus
+Texto HB em cards.ts: Chuva de raios: reduz 50% do Ataque de todos os oponentes enquanto Zeus estiver na arena. Com sacrifício de uma carta aliada, também reduz 50% da Defesa de 1 oponente por Turno.
+Logica Real: Sem logica ativa; o registry retorna [] via unsupportedAbility.
+Divergencia: Sim - A habilidade descrita nao esta implementada na AbilityEngine.
+---
+ID: 15
+Nome: Jean Grey (Fênix)
+Texto HB em cards.ts: Controla 1 oponente por 1 Turno. Ao fim do Turno, destroi o alvo.
+Logica Real: Sem logica ativa; o registry retorna [] via unsupportedAbility.
+Divergencia: Sim - A habilidade descrita nao esta implementada na AbilityEngine.
+---
+ID: 17
+Nome: Broly
+Texto HB em cards.ts: A cada aliado derrotado aumenta sua ira, e ganha 1000 de Ataque. Ao perder o 4º aliado, é consumido pela fúria e se autodestrói.
+Logica Real: Registra efeito passive buffAtk em si mesmo com +1000.
+Divergencia: Sim - A engine nao codifica a condicao de aliado derrotado nem a autodestruicao no 4o aliado.
+---
+ID: 18
+Nome: Sentry
+Texto HB em cards.ts: Dobra seu Ataque e tornar-se imune a tudo por 3 Turnos. Após isso, a instabilidade cresce e se autodestrói.
+Logica Real: Ao ativar, multiplica o proprio ATK por 2 durante 3 turnos.
+Divergencia: Sim - A engine nao implementa imunidade nem autodestruicao apos o efeito.
+---
+ID: 26
+Nome: Goku (Instinto Superior)
+Texto HB em cards.ts: Instinto Superior: Esquiva de Ataque, Habilidade e Efeito. E usa um Kamehameha que elimina 1 oponente por Turno. Dura 3 Turnos.
+Logica Real: Ao ativar, destroi 1 inimigo selecionado.
+Divergencia: Sim - A engine implementa apenas a destruicao de 1 alvo; nao codifica esquiva nem duracao de 3 turnos.
+---
+ID: 33
+Nome: Freeza (Black)
+Texto HB em cards.ts: Por 3 Turnos ativa sua Forma Black, dobrando seus Pontos e concedendo-lhe um contra-ataque imediato.
+Logica Real: Ao ativar, multiplica por 2 o ATK de um alvo enemy durante 3 turnos.
+Divergencia: Sim - O texto indica buff proprio e contra-ataque; a engine aponta para enemy e nao implementa contra-ataque.
+---
+ID: 34
+Nome: Saitama
+Texto HB em cards.ts: Desfere um Soco Avassalador que destrói Habilidade, Efeito ou guerreiros do alvo escolhido (exceto Divinos). Pode repetir a cada 4T.
+Logica Real: Ao ativar, destroi 1 inimigo selecionado.
+Divergencia: Sim - A engine nao implementa excecao para Divinos, destruicao de habilidade/efeito, nem cooldown de 4 turnos.
+---
+ID: 36
+Nome: Thor
+Texto HB em cards.ts: Invoca uma poderosa tempestade em seu Turno, que elimina até 3 oponentes e bloqueia Habilidade dos demais por 2 Turnos.
+Logica Real: Ao ativar, aplica silence com target self por 2 turnos.
+Divergencia: Sim - A engine nao elimina oponentes e o alvo codificado e self, nao os demais oponentes.
+---
+ID: 51
+Nome: Magneto
+Texto HB em cards.ts: Cria um campo magnético que paralisa 2 adversários por 2 Turnos e destrói oponentes cibernéticos na arena.
+Logica Real: Ao ativar, aplica silence em 1 inimigo selecionado por 2 turnos.
+Divergencia: Sim - A engine nao seleciona 2 adversarios nem destroi oponentes ciberneticos.
+---
+ID: 90
+Nome: Lanterna Verde (Hal)
+Texto HB em cards.ts: Cria construtos de energia: para realizar Ataque adicional de 1200. Que pode ser lancado no Turno do oponente. dura 3 Turnos
+Logica Real: Ao ativar, causa 1200 de dano em 1 inimigo selecionado com duration 3.
+Divergencia: Sim - A engine codifica dano manual, mas nao codifica lancamento no turno do oponente como reacao.
+---
+ID: 93
+Nome: Hela
+Texto HB em cards.ts: Cada oponente derrotado aumenta 20% seu Ataque por 3 Turnos. Com 1 sacrifício, revive 1 vilão geral
+Logica Real: Ao ativar, executa summon target self com value 1.
+Divergencia: Sim - A engine nao codifica ganho de ATK por oponente derrotado, sacrificio, nem restricao de reviver vilao geral.
+---
+ID: 95
+Nome: Ravena
+Texto HB em cards.ts: Invoca uma aura psíquica que absorve o Ataque de 2 oponentes, subtraindo deles e transferindo para sua Defesa. E anula os Efeito do oponente. Dura 2 Turnos. Ao fim, os alvos recuperam o Ataque perdido.
+Logica Real: Ao ativar, aplica silence em 1 inimigo selecionado por 2 turnos.
+Divergencia: Sim - A engine nao absorve ATK de 2 oponentes, nao transfere para DEF, e nao restaura ATK ao fim.
+---
+ID: 133
+Nome: Goten
+Texto HB em cards.ts: Se transforma: +600 ATK e 2 ataques por turno por 3 turnos.
+Logica Real: Em onPlay, retorna buffAtk em si mesmo com value 0 como marcador de transformacao/ataques.
+Divergencia: Sim - A engine nao codifica +600 ATK nem duracao de 3 turnos no efeito retornado.
+---
+ID: 136
+Nome: Boruto
+Texto HB em cards.ts: Marca um oponente com o Karma, absorvendo sua Defesa no 1º Turno. Seu Ataque no 2º Turno, o destruindo.
+Logica Real: Ao ativar, retorna buffDef em alvo enemy com value 0 e requer alvo.
+Divergencia: Sim - A engine nao codifica absorcao de DEF no 1o turno, absorcao de ATK no 2o turno, nem destruicao do alvo.
+---
+ID: 137
+Nome: Rock Lee (8 Portas)
+Texto HB em cards.ts: Porta da Fera: Acelera seus movimentos, realizando 3 Ataque por Turno, Dura 3 Turnos. Mas perde 90% de Defesa definitivamente apos isso.
+Logica Real: Ao ativar, retorna buffAtk em si mesmo com value 0.
+Divergencia: Sim - A engine nao codifica duracao de 3 turnos nem perda definitiva de 90% da DEF.
+---
+ID: 144
+Nome: Homem Formiga (Gigante)
+Texto HB em cards.ts: Reduz seu tamanho para esquivar de 1 Ataque ou Habilidade. Após, retornar ao normal, dobra seu Ataque.
+Logica Real: Ao ativar, retorna buffDef em si mesmo com value 0.
+Divergencia: Sim - A engine nao codifica esquiva nem dobrar ATK apos retornar ao normal.
+---
+ID: 161
+Nome: Shuri (Pantera)
+Texto HB em cards.ts: Invoca armaduras que aumentam em 50% a Defesa de todos os aliados por 3 Turnos.
+Logica Real: Ao ativar, retorna buffDef para allies com value 50.
+Divergencia: Sim - A engine aponta o aumento de DEF dos aliados, mas nao codifica duracao de 3 turnos nem operacao percentual explicita.
+---
+ID: 162
+Nome: Homem Elástico
+Texto HB em cards.ts: Usa seu corpo elástico para proteger a si e seus aliados 2x de Ataque e Habilidade. cada uso aumenta instantemente sua Defesa em 500.
+Logica Real: Ao ativar, concede +500 DEF a 1 alvo any selecionado.
+Divergencia: Sim - A engine nao codifica protecao 2x contra ataque/habilidade nem aumento por uso.
+---
+ID: 163
+Nome: Mulher Invisível
+Texto HB em cards.ts: Cria uma barreira psíquica que desvia até 3 Ataque (sua escolha), contra si ou aliados. Cada desvio aumenta sua Defesa em 300.
+Logica Real: Ao ativar, retorna buffDef em si mesma com value 0 como marcador de campo de forca.
+Divergencia: Sim - A engine nao codifica explicitamente os 3 desvios escolhidos nem +300 DEF por desvio no efeito retornado.
+---
+ID: 189
+Nome: Asa Noturna (Robin)
+Texto HB em cards.ts: Torna-se imune a qualquer Ataque por 2 Turnos seguidos, nesse tempo aumenta o próprio Ataque em 50%.
+Logica Real: Ao ativar, multiplica o proprio ATK por 1.5 durante 2 turnos.
+Divergencia: Sim - A engine implementa apenas o aumento de ATK, sem imunidade a ataques.
+---
+ID: 190
+Nome: Caveira Vermelha
+Texto HB em cards.ts: O próximo adversário que destruir, ganha +400 DEF e reduz 50% do AT dos oponentes por 2T.
+Logica Real: Ao ativar, concede +400 DEF a si mesmo.
+Divergencia: Sim - A engine nao condiciona o ganho a destruir adversario e nao reduz 50% do AT dos oponentes por 2 turnos.
+---
+ID: 191
+Nome: Duende Verde
+Texto HB em cards.ts: Implanta caos as cartas adversárias na arena, destruindo até 2 cartas de Defesa menor que 1000.
+Logica Real: Sem logica ativa; o registry retorna [] via unsupportedAbility.
+Divergencia: Sim - A habilidade descrita nao esta implementada na AbilityEngine.
+---
+ID: 192
+Nome: Rocket Raccoon
+Texto HB em cards.ts: Explosivos: Reduz Defesa dos adversários em 50%. E elimina oponentes que ficaram com Defesa menor que 600.
+Logica Real: Sem logica ativa; o registry retorna [] via unsupportedAbility.
+Divergencia: Sim - A habilidade descrita nao esta implementada na AbilityEngine.
+---
+ID: 211
+Nome: Alerquina
+Texto HB em cards.ts: Triplica seu Ataque, mas reduz sua Defesa pela metade, por 3 Turnos.
+Logica Real: Ao ativar, multiplica o proprio ATK por 3 e a propria DEF por 0.5 durante 3 turnos.
+Divergencia: Nao - O texto condiz com os efeitos retornados pela AbilityEngine.
+---
+ID: 212
+Nome: Coringa
+Texto HB em cards.ts: Escolha uma carta da mão do oponente aleatoriamente para si.
+Logica Real: Sem logica ativa; o registry retorna [] via unsupportedAbility.
+Divergencia: Sim - A habilidade descrita nao esta implementada na AbilityEngine.
+---
+ID: 213
+Nome: Nami
+Texto HB em cards.ts: Aumenta sua própria Defesa em 400 e reduz 200 Pontos dos adversários na arena por 2 Turnos.
+Logica Real: Ao ativar, concede +400 DEF a si mesma por 2 turnos.
+Divergencia: Sim - A engine nao reduz 200 pontos dos adversarios na arena.
+---
+ID: 214
+Nome: Usopp
+Texto HB em cards.ts: Lança um Ataque extra de 500 no seu Turno.
+Logica Real: Ao ativar, causa 500 de dano no oponente/alvo inimigo.
+Divergencia: Nao - O efeito de dano 500 condiz com o ataque extra descrito.
+---

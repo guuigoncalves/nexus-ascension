@@ -170,7 +170,7 @@ export const initialCards: Card[] = [
         "atk": 2500,
         "def": 2450,
         "rarity": "Lendário",
-        "description": "Instinto Superior: Esquiva de Ataque, Habilidade e Efeito. E usa um Kamehameha que elimina 1 oponente por Turno. Dura 3 Turnos.",
+        "description": "Esquiva de Ataque, Habilidade e Efeitos por 3 turnos. Pode usar um ataque especial 1 vez durante esse periodo para eliminar 1 oponente.",
         "image": "/cards/26.png",
         "effects": [
             {
@@ -229,7 +229,7 @@ export const initialCards: Card[] = [
         "atk": 2300,
         "def": 2250,
         "rarity": "Lendário",
-        "description": "Por 3 Turnos ativa sua Forma Black, dobrando seus Pontos e concedendo-lhe um contra-ataque imediato.",
+        "description": "Dobra seus Pontos e concede um contra-ataque imediato. Dura 3 turnos.",
         "image": "/cards/33.png",
         "isVillain": true
     },
@@ -240,7 +240,7 @@ export const initialCards: Card[] = [
         "atk": 2300,
         "def": 2250,
         "rarity": "Lendário",
-        "description": "Desfere um Soco Avassalador que destrói Habilidade, Efeito ou guerreiros do alvo escolhido (exceto Divinos). Pode repetir a cada 4T.",
+        "description": "Destroi a Habilidade, Efeitos ou a propria carta do alvo escolhido, exceto cartas Divinas. Pode ser repetido a cada 4 turnos.",
         "image": "/cards/34.png",
         "isVillain": true
     },
@@ -524,7 +524,7 @@ export const initialCards: Card[] = [
         "atk": 1550,
         "def": 1550,
         "rarity": "Titã",
-        "description": "Cria construtos de energia: para realizar Ataque adicional de 1200. Que pode ser lancado no Turno do oponente. dura 3 Turnos",
+        "description": "Ganha um Ataque adicional manual de 1200. No seu turno causa dano direto. No turno do oponente voce escolhe interceptar um ataque ou contra-atacar. Limite de 1 uso por turno. Dura 3 turnos.",
         "image": "/cards/90.png"
     },
     {
@@ -554,7 +554,7 @@ export const initialCards: Card[] = [
         "atk": 1550,
         "def": 1550,
         "rarity": "Titã",
-        "description": "Cada oponente derrotado aumenta 20% seu Ataque por 3 Turnos. Com 1 sacrifício, revive 1 vilão geral",
+        "description": "Cada oponente derrotado aumenta seu Ataque em 10% permanentemente, dobrado se for vilao, com limite de 100%. Sacrificando um aliado, rouba 1 carta do cemiterio inimigo para sua arena.",
         "image": "/cards/93.png",
         "isVillain": true
     },
@@ -575,7 +575,7 @@ export const initialCards: Card[] = [
         "atk": 1550,
         "def": 1500,
         "rarity": "Titã",
-        "description": "Invoca uma aura psíquica que absorve o Ataque de 2 oponentes, subtraindo deles e transferindo para sua Defesa. E anula os Efeito do oponente. Dura 2 Turnos. Ao fim, os alvos recuperam o Ataque perdido.",
+        "description": "Absorve o Ataque de 2 oponentes para a sua Defesa e anula os Efeitos deles por 2 turnos. Sofrer dano reduz a quantia que sera devolvida aos oponentes no final. Se morrer, os alvos perdem o Ataque para sempre.",
         "image": "/cards/95.png"
     },
     {

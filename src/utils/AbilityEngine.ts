@@ -97,6 +97,22 @@ const SpecialAbilities: Record<string, AbilityFactory> = {
         description: 'Tempestade: silenciar oponentes por 2 turnos',
         requiresTarget: false
     }],
+    '49': () => [{
+        trigger: 'onActivate',
+        type: 'destroy',
+        target: 'enemy',
+        value: 2,
+        description: 'Explosao de Fotons: eliminar ate 2 oponentes nivel 7 ou menor',
+        requiresTarget: true
+    }],
+    '50': () => [{
+        trigger: 'onActivate',
+        type: 'silence',
+        target: 'enemy',
+        value: 1,
+        description: 'Roubar habilidade de 1 oponente',
+        requiresTarget: true
+    }],
     '51': () => [{
         trigger: 'onActivate',
         type: 'silence',
@@ -131,6 +147,16 @@ const SpecialAbilities: Record<string, AbilityFactory> = {
         duration: 2,
         description: 'Absorver AT de 2 oponentes e anular efeitos por 2 turnos',
         requiresTarget: true
+    }],
+    '128': () => [{
+        trigger: 'onActivate',
+        type: 'buffAtk',
+        target: 'self',
+        value: 2,
+        operation: 'multiply',
+        duration: 2,
+        description: 'Instinto Predatorio: dobra ATK por 2 turnos',
+        requiresTarget: false
     }],
     '133': () => [{
         trigger: 'onPlay',
