@@ -26,6 +26,7 @@ interface Unit extends Card {
     karmaStage?: 1 | 2;
     karmaStoredAttack?: number;
     karmaStoredDefense?: number;
+    absorbedBy?: string;
     counters?: { [key: string]: number };
 }
 
@@ -862,6 +863,16 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         updated.originalAttack = undefined;
                     }
                 }
+                if ((updated.counters?.speedTurns || 0) > 0) {
+                    const nextSpeedTurns = Math.max(0, (updated.counters?.speedTurns || 0) - 1);
+                    updated.counters = {
+                        ...updated.counters,
+                        speedTurns: nextSpeedTurns,
+                        hasAttackedOnce: 0
+                    };
+                    updated.maxAttacksPerTurn = nextSpeedTurns > 0 ? 2 : undefined;
+                    updated.remainingAttacks = nextSpeedTurns > 0 ? 2 : 1;
+                }
 
                 return updated;
             };
@@ -909,6 +920,11 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                             updated.currentAttack = updated.originalAttack;
                             updated.originalAttack = undefined;
                         }
+                    }
+                    if ((updated.counters?.speedTurns || 0) > 0) {
+                        const nextSpeedTurns = Math.max(0, (updated.counters?.speedTurns || 0) - 1);
+                        updated.counters = { ...updated.counters, speedTurns: nextSpeedTurns, hasAttackedOnce: 0 };
+                        updated.maxAttacksPerTurn = nextSpeedTurns > 0 ? 2 : undefined;
                     }
 
                     if (nextPlayer === 'player') {
@@ -1816,6 +1832,11 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 currentAttack: card.atk || 0,
                 canAttack: !playFaceDown && isUnit, // Effects usually can't attack unless transformed
                 isFaceDown: playFaceDown,
+                counters: card.id === '61'
+                    ? { absorptionCharges: 2 }
+                    : card.id === '62'
+                        ? { absorptionCharges: 1 }
+                        : undefined,
             };
 
             const newBoard = [...prev.playerBoard];
@@ -2117,10 +2138,75 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     };
                 }
 
+                if (target.absorbedBy) {
+                    const absorptionSource = [...prev.opponentBoard, ...prev.divineSlots.opponent].find(unit =>
+                        unit?.id === target.absorbedBy
+                        && unit.cardId === '61'
+                        && (unit.counters?.absorptionCharges || 0) > 0
+                    );
+                    if (absorptionSource) {
+                        const updateAbsorptionBoard = (unit: Unit | null) => {
+                            if (!unit) return unit;
+                            if (unit.id === absorptionSource.id) {
+                                return {
+                                    ...unit,
+                                    currentAttack: unit.currentAttack + attacker.currentAttack,
+                                    currentHealth: unit.currentHealth - 500,
+                                    counters: {
+                                        ...unit.counters,
+                                        absorptionCharges: Math.max(0, (unit.counters?.absorptionCharges || 0) - 1)
+                                    }
+                                };
+                            }
+                            if (unit.id === target.id) return { ...unit, absorbedBy: undefined };
+                            return unit;
+                        };
+                        addToast('Ataque absorvido.', 'info');
+                        return {
+                            ...prev,
+                            playerBoard: prev.playerBoard.map(unit => unit?.id === attacker.id ? {
+                                ...unit,
+                                remainingAttacks: attackerRemainingAttacks,
+                                canAttack: attackerRemainingAttacks > 0
+                            } : unit),
+                            opponentBoard: prev.opponentBoard.map(updateAbsorptionBoard),
+                            divineSlots: {
+                                ...prev.divineSlots,
+                                opponent: prev.divineSlots.opponent.map(updateAbsorptionBoard)
+                            }
+                        };
+                    }
+                }
+
+                if (target.cardId === '62' && (target.counters?.absorptionCharges || 0) > 0) {
+                    const absorbAttack = (unit: Unit | null) => unit?.id === target.id ? {
+                        ...unit,
+                        currentAttack: unit.currentAttack + attacker.currentAttack,
+                        counters: { ...unit.counters, absorptionCharges: 0 }
+                    } : unit;
+                    addToast('Primeiro ataque recebido foi absorvido.', 'info');
+                    return {
+                        ...prev,
+                        playerBoard: prev.playerBoard.map(unit => unit?.id === attacker.id ? {
+                            ...unit,
+                            remainingAttacks: attackerRemainingAttacks,
+                            canAttack: attackerRemainingAttacks > 0
+                        } : unit),
+                        opponentBoard: prev.opponentBoard.map(absorbAttack),
+                        divineSlots: {
+                            ...prev.divineSlots,
+                            opponent: prev.divineSlots.opponent.map(absorbAttack)
+                        }
+                    };
+                }
+
                 addToast(`${attacker!.name} atacou ${target!.name}!`, 'info');
 
                 // NEW COMBAT ENGINE LOGIC
-                const AT = effectiveAttacker.currentAttack;
+                const isPietroSecondAttack = attacker.cardId === '147'
+                    && (attacker.counters?.speedTurns || 0) > 0
+                    && (attacker.counters?.hasAttackedOnce || 0) > 0;
+                const AT = isPietroSecondAttack ? 1800 : effectiveAttacker.currentAttack;
                 const DF = effectiveTarget.currentHealth;
                 const attackerInstanceId = attacker.id;
                 const defenderInstanceId = target.id;
@@ -2159,7 +2245,10 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         return {
                             ...u,
                             remainingAttacks: attackerRemainingAttacks,
-                            canAttack: attackerRemainingAttacks > 0
+                            canAttack: attackerRemainingAttacks > 0,
+                            counters: u.cardId === '147' && (u.counters?.speedTurns || 0) > 0
+                                ? { ...u.counters, hasAttackedOnce: isPietroSecondAttack ? 0 : 1 }
+                                : u.counters
                         };
                     }
                     return u;
@@ -2198,7 +2287,10 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         return {
                             ...u,
                             remainingAttacks: attackerRemainingAttacks,
-                            canAttack: attackerRemainingAttacks > 0
+                            canAttack: attackerRemainingAttacks > 0,
+                            counters: u.cardId === '147' && (u.counters?.speedTurns || 0) > 0
+                                ? { ...u.counters, hasAttackedOnce: isPietroSecondAttack ? 0 : 1 }
+                                : u.counters
                         };
                     }
                     return u;
@@ -2444,6 +2536,18 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             return;
         }
 
+        if (source.cardId === '61') {
+            setState(prev => ({
+                ...prev,
+                playerBoard: prev.playerBoard.map(unit => unit?.id === targetId ? {
+                    ...unit,
+                    absorbedBy: source.id
+                } : unit),
+                targetSelectionMode: null
+            }));
+            return;
+        }
+
         if (source.cardId === '34') {
             const target = [...state.opponentBoard, ...state.divineSlots.opponent, ...state.playerBoard, ...state.divineSlots.player]
                 .find(u => u?.id === targetId);
@@ -2494,6 +2598,82 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         // Check Single Use Per Turn Rule
         if (state.unitsUsedAbilityThisTurn.includes(cardId)) {
             addToast('Esta unidade já usou sua habilidade neste turno!', 'warning');
+            return;
+        }
+
+        if (unit.cardId === '61') {
+            if ((unit.counters?.absorptionCharges || 0) <= 0) {
+                addToast('Sem cargas de absorcao.', 'warning');
+                return;
+            }
+            const validTargets = state.playerBoard.filter((target): target is Unit => !!target).map(target => target.id);
+            setState(prev => ({
+                ...prev,
+                unitsUsedAbilityThisTurn: [...prev.unitsUsedAbilityThisTurn, cardId],
+                targetSelectionMode: {
+                    active: true,
+                    source: unit,
+                    validTargets,
+                    effect: {
+                        trigger: 'onActivate',
+                        type: 'buffAtk',
+                        value: 0,
+                        target: 'allies',
+                        requiresTarget: true
+                    }
+                }
+            }));
+            return;
+        }
+
+        if (unit.cardId === '62') {
+            addToast('A absorcao ocorre automaticamente no primeiro ataque recebido.', 'info');
+            return;
+        }
+
+        if (unit.cardId === '147') {
+            setState(prev => ({
+                ...prev,
+                unitsUsedAbilityThisTurn: [...prev.unitsUsedAbilityThisTurn, cardId],
+                playerBoard: prev.playerBoard.map(candidate => candidate?.id === unit.id ? {
+                    ...candidate,
+                    maxAttacksPerTurn: 2,
+                    remainingAttacks: 2,
+                    counters: {
+                        ...candidate.counters,
+                        speedTurns: 3,
+                        hasAttackedOnce: 0
+                    }
+                } : candidate)
+            }));
+            return;
+        }
+
+        if (unit.cardId === '149') {
+            if (state.currentPlayer !== 'player') {
+                addToast('Transformacao disponivel apenas no seu turno.', 'warning');
+                return;
+            }
+            if ((unit.counters?.transformed || 0) > 0) {
+                addToast('Transformacao ja utilizada nesta partida.', 'warning');
+                return;
+            }
+            const choice = window.prompt('Escolha a transformacao: Tigre ou Elefante');
+            const normalizedChoice = choice?.trim().toLowerCase();
+            if (normalizedChoice !== 'tigre' && normalizedChoice !== 'elefante') return;
+            setState(prev => ({
+                ...prev,
+                unitsUsedAbilityThisTurn: [...prev.unitsUsedAbilityThisTurn, cardId],
+                playerBoard: prev.playerBoard.map(candidate => {
+                    if (candidate?.id !== unit.id) return candidate;
+                    return {
+                        ...candidate,
+                        currentAttack: normalizedChoice === 'tigre' ? candidate.currentAttack * 2 : candidate.currentAttack,
+                        currentHealth: normalizedChoice === 'elefante' ? candidate.currentHealth * 2 : candidate.currentHealth,
+                        counters: { ...candidate.counters, transformed: 1 }
+                    };
+                })
+            }));
             return;
         }
 
@@ -2565,7 +2745,12 @@ export const BattleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             cardId: card.cardId ?? card.id,
             currentHealth: card.def || 1000,
             currentAttack: card.atk || 1000,
-            canAttack: true
+            canAttack: true,
+            counters: card.id === '61'
+                ? { absorptionCharges: 2 }
+                : card.id === '62'
+                    ? { absorptionCharges: 1 }
+                    : undefined
         };
         setState(prev => {
             const board = isPlayer ? [...prev.playerBoard] : [...prev.opponentBoard];

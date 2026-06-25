@@ -49,6 +49,7 @@ interface TestUnit {
     stunTurns?: number; // Spider-Man Stun Duration
     hasAttacked?: boolean;
     isIntangible?: boolean;
+    absorbedBy?: string;
 }
 
 
@@ -461,7 +462,8 @@ export const TestLab: React.FC = () => {
         currentHealth: card.def || 0,
         currentAttack: card.atk || 0,
         isSilenced: false,
-        abilityCharges: card.id === '152' ? 2 : undefined
+        abilityCharges: card.id === '152' ? 2 : undefined,
+        charges: card.id === '61' ? 2 : card.id === '62' ? 1 : undefined
     });
 
     // --- DRAG & DROP HANDLERS (HTML5) ---
@@ -1080,7 +1082,7 @@ export const TestLab: React.FC = () => {
     }, [log, saveHistory]);
 
     const handleNormalSetup = useCallback(() => {
-        const playerSetupIds = ['25', '52'];
+        const playerSetupIds = ['61', '62', '147', '149'];
         const enemyRarityOrder = ['Supremo', 'Destruidor', 'Lendário', 'Titã', 'Elite', 'Veterano', 'Gladiador'];
         const newPlayerBoard = Array(14).fill(null);
         const newEnemyBoard = Array(14).fill(null);
@@ -1317,6 +1319,17 @@ export const TestLab: React.FC = () => {
                 if (updated.maxAttacks !== undefined) {
                     updated.maxAttacks = undefined; // Limpa multi-ataque ao virar turno
                 }
+                if (updated.card.id === '147' && updated.effectTurns && updated.effectTurns > 0) {
+                    updated = {
+                        ...updated,
+                        maxAttacks: 2,
+                        remainingAttacks: 2,
+                        customState: {
+                            ...(updated.customState || {}),
+                            hasAttackedOnce: false
+                        }
+                    };
+                }
 
                 return updated;
             });
@@ -1503,6 +1516,58 @@ export const TestLab: React.FC = () => {
             log('[OOB] Sem ataques restantes.');
             setAttackMode(null);
             setSelectedSlot(null);
+            return;
+        }
+
+        const absorptionSourceId = defender.absorbedBy;
+        if (absorptionSourceId) {
+            const absorptionBoard = targetBoard === 'player' ? playerBoard : enemyBoard;
+            const absorptionSource = absorptionBoard.find(unit => unit?.id === absorptionSourceId && unit.card.id === '61' && (unit.charges || 0) > 0);
+            if (absorptionSource) {
+                const nextBoard = absorptionBoard.map(unit => {
+                    if (!unit) return unit;
+                    if (unit.id === absorptionSource.id) {
+                        const nextCharges = Math.max(0, (unit.charges || 0) - 1);
+                        const nextHealth = unit.currentHealth - 500;
+                        return {
+                            ...unit,
+                            currentAttack: unit.currentAttack + attacker.currentAttack,
+                            currentHealth: nextHealth,
+                            charges: nextCharges,
+                            card: {
+                                ...unit.card,
+                                atk: unit.currentAttack + attacker.currentAttack,
+                                def: nextHealth
+                            },
+                            statusText: nextCharges > 0 ? `ABSORCAO (${nextCharges})` : undefined
+                        };
+                    }
+                    if (unit.id === defender.id) {
+                        return { ...unit, absorbedBy: undefined };
+                    }
+                    return unit;
+                });
+                if (targetBoard === 'player') setPlayerBoard(nextBoard); else setEnemyBoard(nextBoard);
+                setInteractionMode({ type: 'IDLE' });
+                setAttackMode(null);
+                setSelectedSlot(null);
+                log(`[61] Ataque absorvido. Cargas restantes: ${Math.max(0, (absorptionSource.charges || 0) - 1)}.`);
+                return;
+            }
+        }
+
+        if (defender.card.id === '62' && (defender.charges || 0) > 0) {
+            const nextBoard = defenderBoard.map(unit => unit?.id === defender.id ? {
+                ...unit,
+                currentAttack: unit.currentAttack + attacker.currentAttack,
+                charges: 0,
+                card: { ...unit.card, atk: unit.currentAttack + attacker.currentAttack },
+                statusText: 'ABSORCAO USADA'
+            } : unit);
+            if (targetBoard === 'player') setPlayerBoard(nextBoard); else setEnemyBoard(nextBoard);
+            setAttackMode(null);
+            setSelectedSlot(null);
+            log('[62] Primeiro ataque recebido foi absorvido.');
             return;
         }
 
@@ -2017,7 +2082,11 @@ export const TestLab: React.FC = () => {
             if (targetBoard === 'player') setPlayerBoard(nextDefBoard); else setEnemyBoard(nextDefBoard);
         }
 
-        let attackerDamage = attacker.currentAttack; // ATK do atacante
+        const isPietroSecondAttack = attacker.card.id === '147'
+            && attacker.effectTurns !== undefined
+            && attacker.effectTurns > 0
+            && attacker.customState?.hasAttackedOnce === true;
+        let attackerDamage = isPietroSecondAttack ? 1800 : attacker.currentAttack; // ATK do atacante
         if (defender.customState?.damageReduction) {
             attackerDamage = Math.floor(attackerDamage * defender.customState.damageReduction);
         }
@@ -2050,6 +2119,21 @@ export const TestLab: React.FC = () => {
                     customState: {
                         ...(attUnit.customState || {}),
                         attacksThisTurn
+                    }
+                };
+                if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
+            }
+        }
+        if (attacker.card.id === '147' && attacker.effectTurns && attacker.effectTurns > 0) {
+            const attackerBoardArr = attackMode.attackerBoard === 'player' ? [...newPBoard] : [...newEBoard];
+            const attIdx = attackerBoardArr.findIndex(u => u?.id === attacker.id);
+            if (attIdx !== -1 && attackerBoardArr[attIdx]) {
+                const attUnit = attackerBoardArr[attIdx]!;
+                attackerBoardArr[attIdx] = {
+                    ...attUnit,
+                    customState: {
+                        ...(attUnit.customState || {}),
+                        hasAttackedOnce: !isPietroSecondAttack
                     }
                 };
                 if (attackMode.attackerBoard === 'player') newPBoard = attackerBoardArr; else newEBoard = attackerBoardArr;
@@ -3474,6 +3558,101 @@ export const TestLab: React.FC = () => {
             setMyBoard(newBoard);
             log('[VISAO] Intangivel por 3T.');
             setEffectMode(null);
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
+        if (source.card.id === '61') {
+            if ((source.charges || 0) <= 0) {
+                log('[61] Sem cargas de absorcao.');
+                if (cardPopup) setCardPopup(null);
+                return;
+            }
+            const isPlayerSource = playerBoard.some(unit => unit?.id === source.id);
+            setInteractionMode({
+                type: 'SELECTING_ABILITY_TARGET',
+                sourceId: source.id,
+                abilityCallback: (targetId) => {
+                    const sourceBoard = isPlayerSource ? playerBoard : enemyBoard;
+                    const setSourceBoard = isPlayerSource ? setPlayerBoard : setEnemyBoard;
+                    if (!sourceBoard.some(unit => unit?.id === targetId)) {
+                        log('[61] Selecione a si mesmo ou um aliado.');
+                        setInteractionMode({ type: 'IDLE' });
+                        return;
+                    }
+                    setSourceBoard(prev => prev.map(unit => unit?.id === targetId ? {
+                        ...unit,
+                        absorbedBy: source.id,
+                        statusText: 'PROTEGIDO POR ABSORCAO'
+                    } : unit));
+                    setInteractionMode({ type: 'IDLE' });
+                }
+            });
+            log('[61] Selecione a si mesmo ou um aliado.');
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
+        if (source.card.id === '62') {
+            log('[62] A absorcao ocorre automaticamente no primeiro ataque recebido.');
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
+        if (source.card.id === '147') {
+            const isPlayerSource = playerBoard.some(unit => unit?.id === source.id);
+            const setSourceBoard = isPlayerSource ? setPlayerBoard : setEnemyBoard;
+            setSourceBoard(prev => prev.map(unit => unit?.id === source.id ? {
+                ...unit,
+                effectTurns: 3,
+                maxAttacks: 2,
+                remainingAttacks: 2,
+                statusText: 'VELOCIDADE 3 TURNOS',
+                customState: {
+                    ...(unit.customState || {}),
+                    hasAttackedOnce: false
+                }
+            } : unit));
+            if (cardPopup) setCardPopup(null);
+            return;
+        }
+
+        if (source.card.id === '149') {
+            if (currentTurn !== (playerBoard.some(unit => unit?.id === source.id) ? 'player' : 'enemy')) {
+                log('[149] Transformacao disponivel apenas no proprio turno.');
+                if (cardPopup) setCardPopup(null);
+                return;
+            }
+            if (source.customState?.transformed) {
+                log('[149] Transformacao ja utilizada nesta partida.');
+                if (cardPopup) setCardPopup(null);
+                return;
+            }
+            const choice = window.prompt('Escolha a transformacao: Tigre ou Elefante');
+            const normalizedChoice = choice?.trim().toLowerCase();
+            if (normalizedChoice !== 'tigre' && normalizedChoice !== 'elefante') {
+                log('[149] Transformacao cancelada.');
+                return;
+            }
+            const isPlayerSource = playerBoard.some(unit => unit?.id === source.id);
+            const setSourceBoard = isPlayerSource ? setPlayerBoard : setEnemyBoard;
+            setSourceBoard(prev => prev.map(unit => {
+                if (unit?.id !== source.id) return unit;
+                const nextAttack = normalizedChoice === 'tigre' ? unit.currentAttack * 2 : unit.currentAttack;
+                const nextHealth = normalizedChoice === 'elefante' ? unit.currentHealth * 2 : unit.currentHealth;
+                return {
+                    ...unit,
+                    currentAttack: nextAttack,
+                    currentHealth: nextHealth,
+                    card: { ...unit.card, atk: nextAttack, def: nextHealth },
+                    statusText: normalizedChoice === 'tigre' ? 'FORMA TIGRE' : 'FORMA ELEFANTE',
+                    customState: {
+                        ...(unit.customState || {}),
+                        transformed: true,
+                        transformation: normalizedChoice
+                    }
+                };
+            }));
             if (cardPopup) setCardPopup(null);
             return;
         }

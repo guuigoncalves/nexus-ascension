@@ -1,0 +1,72 @@
+PROJETO: Nexus Ascension
+REPOSITORIO: /home/ubuntu/projects/nexus-ascension
+BRANCH: hermes/sessao-2-lote-b
+
+REGRAS ABSOLUTAS:
+R1  - NUNCA usar nome da carta. Sempre ID numerico como string.
+R2  - NUNCA hardcodar AT ou DF. Sempre initialCards.find(c => c.id === 'ID').
+R3  - NUNCA inventar HB. Texto oficial esta neste prompt.
+R4  - NUNCA tocar logica core de carta blindada (excecao: bug de clique/estado autorizado).
+R5  - NUNCA mais de 5-8 cartas por lote.
+R6  - SEMPRE spread operator em mutacoes React.
+R7  - str_replace cirurgico. NUNCA reescrever arquivo inteiro.
+R8  - ASCII puro. PROIBIDO acentos e emojis em arquivos .ts/.tsx/.js.
+R9  - Sempre interactionMode. Nunca multiplas flags de estado.
+R10 - NUNCA reescrever strings de HB sem instrucao explicita.
+R11 - isImmune no defensor NAO impede morte do atacante quando ATK < DEF.
+R12 - Cooldowns SEMPRE decrementam em nextTurn.
+R13 - Todo TARGET_SELECT DEVE chamar setInteractionMode({type:'IDLE'}) ao final.
+R14 - Carta "nao criada ainda" = DLC. PARAR e reportar.
+R15 - IDs sao sagrados. NUNCA altere IDs em cards.ts.
+R16 - Build deve passar com npm run build. Testar no Preview correto da Vercel.
+R17 - Somente o que foi pedido. Nada a mais.
+R18 - Setup do jogador: apenas cartas da sessao atual. Adversario nunca muda.
+R19 - Codex NUNCA roda git commit/checkout. Versionamento manual no host.
+R20 - Textos de HB em linguagem natural: zero siglas como "3T", "AT", "DF" no texto exibido ao jogador.
+
+ARQUIVOS ALVO:
+- src/context/BattleContext.tsx
+- src/components/TestLab.tsx (ou arquivo onde o Setup do Jogador e definido)
+
+TAREFA SETUP (R18):
+Atualizar o botao de "Setup" do jogador no TestLab para carregar APENAS as cartas da sessao atual: '61', '62', '147', '149'. O adversario deve manter a rotacao padrão inalterada.
+
+TAREFA 1 — Android 17 (ID: '61')
+HB oficial: 'Absorve 2 AT contra si ou seus aliados (a sua escolha) e adiciona ao seu AT, mas perde 500 de DF por absorcao.'
+Implementacao:
+- Android 17 ('61') inicia o jogo com 2 cargas de absorção.
+- Ao clicar em usar habilidade, define interactionMode para { type: 'TARGET_SELECT', cardId: '61', targetType: 'ALLY_OR_SELF' }.
+- Ao escolher o alvo (si mesmo ou aliado na arena), associa o efeito de absorcao a esse alvo (ex: campo 'absorbedBy: "61"').
+- Quando esse alvo sofrer um ataque direto:
+  - O ataque e completamente absorvido (defensor nao sofre dano, combate e interceptado).
+  - O AT atual do atacante e adicionado ao AT de '61'.
+  - '61' perde 500 de DF.
+  - Consome 1 carga de absorcao de '61'.
+  - Limpa a marca de absorcao do alvo.
+  - Define o interactionMode para IDLE.
+
+TAREFA 2 — Android 18 (ID: '62')
+HB oficial: 'Absorve 1 AT recebido, juntando ao seu proprio AT.'
+Implementacao:
+- Mecanica passiva/automatica que ocorre apenas na primeira vez que '62' e atacada na arena.
+- Quando '62' receber um ataque direto (e ainda possuir a carga de absorcao):
+  - O ataque e completamente absorvido (combate e cancelado/interceptado, '62' nao sofre dano e o atacante nao sofre dano).
+  - O AT do atacante e adicionado ao AT de '62'.
+  - Desativa a habilidade (1 unico uso por partida).
+
+TAREFA 3 — Pietro Maximoff (ID: '147')
+HB oficial: 'Sua velocidade ultrapassa limites: ataca 2x por T: o primeiro usa seu AT normal, o segundo tem 1800 de AT. Dura 3T.'
+Implementacao:
+- Ao ativar a habilidade, inicia um status de duracao de 3 turnos (decrementa no nextTurn).
+- Enquanto o status estiver ativo, quando '147' realizar um ataque:
+  - Se for o primeiro ataque do turno, ele nao fica exausto (pode atacar novamente) e marcamos hasAttackedOnce = true.
+  - Se for o segundo ataque do turno, o AT dele para este calculo de combate especifico e fixado em 1800. Apos resolver este combate, hasAttackedOnce volta a false e ele fica exausto para o turno.
+
+TAREFA 4 — Mutano (ID: '149')
+HB oficial: 'Pode se transformar em seu T. Escolha: Tigre: dobra o AT. Elefante: dobra o DF.'
+Implementacao:
+- No turno do jogador, caso '149' esteja na arena e nao tenha se transformado ainda, exibe opcao de transformacao.
+- Ao clicar, exibe sub-menu ou modal de selecao simples: "Tigre" ou "Elefante".
+- Se "Tigre": dobra permanentemente o AT de '149'.
+- Se "Elefante": dobra permanentemente a DF de '149'.
+- Marca '149' como transformado para nao poder ativar a transformacao novamente nesta partida.
